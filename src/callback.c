@@ -47,6 +47,29 @@ void logger(const char *fmt, ...)
 	}
 }
 
+PyObject *build_arg_tuple(PyObject ***arg_lists, unsigned int *n_args)
+/*
+ *  This is a convenience replacement for Py_BuildValue.
+ *  It takes a NULL terminated array arg_lists of c arrays of PyObject* as arguments
+ *  having a number of arguments accorging to the n_args array.
+ *  It constructs a new tuple consisting of all elements in all arrays in arg_lists.
+ */
+{
+  unsigned int i, j, l;
+  unsigned int size_tuple = 0;
+  for(i=0; arg_lists[i] != NULL; i++)
+    size_tuple += n_args[i];
+  PyObject *tuple = PyTuple_New(size_tuple);
+  l = 0;
+  for(i=0; arg_lists[i] != NULL; i++)
+    for(j=0; j<n_args[i]; j++)
+      {
+	Py_INCREF(arg_lists[i][j]);
+	PyTuple_SET_ITEM(tuple, l++, arg_lists[i][j]);
+      }
+  return tuple;
+}
+
 Bool eval_intermediate_callback(Index alg_mod,	/* 0 is regular, 1 is resto */
 				Index iter_count, Number obj_value,
 				Number inf_pr, Number inf_du,
@@ -58,62 +81,36 @@ Bool eval_intermediate_callback(Index alg_mod,	/* 0 is regular, 1 is resto */
 	//logger("[Callback:E]intermediate_callback");
 
 	DispatchData *myowndata = (DispatchData *) data;
-	UserDataPtr user_data = (UserDataPtr) myowndata->userdata;
+	PyObject** callback_args = myowndata->callback_args;
+	PyObject* callback_kwargs = myowndata->callback_kwargs;
 
-	long result_as_long;
 	Bool result_as_bool;
 
-	PyObject *python_algmod = Py_BuildValue("i", alg_mod);
-	PyObject *python_iter_count = Py_BuildValue("i", iter_count);
-	PyObject *python_obj_value = Py_BuildValue("d", obj_value);
-	PyObject *python_inf_pr = Py_BuildValue("d", inf_pr);
-	PyObject *python_inf_du = Py_BuildValue("d", inf_du);
-	PyObject *python_mu = Py_BuildValue("d", mu);
-	PyObject *python_d_norm = Py_BuildValue("d", d_norm);
-	PyObject *python_regularization_size =
-	    Py_BuildValue("d", regularization_size);
-	PyObject *python_alpha_du = Py_BuildValue("d", alpha_du);
-	PyObject *python_alpha_pr = Py_BuildValue("d", alpha_pr);
-	PyObject *python_ls_trials = Py_BuildValue("i", ls_trials);
-
 	PyObject *arglist = NULL;
-
-	if (user_data != NULL)
-		arglist = Py_BuildValue("(OOOOOOOOOOOO)",
-					python_algmod,
-					python_iter_count,
-					python_obj_value,
-					python_inf_pr,
-					python_inf_du,
-					python_mu,
-					python_d_norm,
-					python_regularization_size,
-					python_alpha_du,
-					python_alpha_pr,
-					python_ls_trials,
-					(PyObject *) user_data);
-	else
-		arglist = Py_BuildValue("(OOOOOOOOOOO)",
-					python_algmod,
-					python_iter_count,
-					python_obj_value,
-					python_inf_pr,
-					python_inf_du,
-					python_mu,
-					python_d_norm,
-					python_regularization_size,
-					python_alpha_du,
-					python_alpha_pr, python_ls_trials);
+	PyObject *args[] = {
+	  Py_BuildValue("i", alg_mod),
+	  Py_BuildValue("i", iter_count),
+	  Py_BuildValue("d", obj_value),
+	  Py_BuildValue("d", inf_pr),
+	  Py_BuildValue("d", inf_du),
+	  Py_BuildValue("d", mu),
+	  Py_BuildValue("d", d_norm),
+	  Py_BuildValue("d", regularization_size),
+	  Py_BuildValue("d", alpha_du),
+	  Py_BuildValue("d", alpha_pr),
+	  Py_BuildValue("i", ls_trials)
+	};
+	arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
 
 	PyObject *result =
-	    PyObject_CallObject(myowndata->eval_intermediate_callback_python,
-				arglist);
+	    PyObject_Call(myowndata->eval_intermediate_callback_python,
+			  arglist, callback_kwargs);
 
 	if (!result)
 		PyErr_Print();
 
-	result_as_long = PyLong_AsLong(result);
-	result_as_bool = (Bool) result_as_long;
+	result_as_bool = (Bool) PyLong_AsLong(result);
 
 	Py_DECREF(result);
 	Py_CLEAR(arglist);
@@ -130,7 +127,8 @@ eval_f(Index n, Number * x, Bool new_x, Number * obj_value, UserDataPtr data)
 	dims[0] = n;
 
 	DispatchData *myowndata = (DispatchData *) data;
-	UserDataPtr user_data = (UserDataPtr) myowndata->userdata;
+	PyObject **callback_args = myowndata->callback_args;
+	PyObject *callback_kwargs = myowndata->callback_kwargs;
 
 	// import_array ();
 
@@ -148,22 +146,18 @@ eval_f(Index n, Number * x, Bool new_x, Number * obj_value, UserDataPtr data)
         myowndata->apply_new_python, arg1);
 		if (tempresult == NULL) {
 			logger("[Error] Python function apply_new returns NULL");
-      PyErr_Print();
+			PyErr_Print();
 			Py_DECREF(arg1);
 			return FALSE;
 		}
 		Py_DECREF(arg1);
 		Py_DECREF(tempresult);
 	}
+	PyObject* args[] = {arrayx};
+	PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
 
-	PyObject *arglist;
-	if (user_data != NULL) {
-		arglist = Py_BuildValue("(OO)", arrayx, (PyObject *) user_data);
-  } else {
-		arglist = Py_BuildValue("(O)", arrayx);
-  }
-
-	PyObject *result = PyObject_CallObject(myowndata->eval_f_python, arglist);
+	PyObject *result = PyObject_Call(myowndata->eval_f_python, arglist, callback_kwargs);
 
 	if (result == NULL) {
     logger("[Error] Python function eval_f returns NULL");
@@ -197,7 +191,8 @@ eval_grad_f(Index n, Number * x, Bool new_x, Number * grad_f, UserDataPtr data)
 	//logger("[Callback:E] eval_grad_f");
 
 	DispatchData *myowndata = (DispatchData *) data;
-	UserDataPtr user_data = (UserDataPtr) myowndata->userdata;
+	PyObject** callback_args = myowndata->callback_args;
+	PyObject* callback_kwargs = myowndata->callback_kwargs;
 
 	if (myowndata->eval_grad_f_python == NULL)
 		PyErr_Print();
@@ -233,26 +228,24 @@ eval_grad_f(Index n, Number * x, Bool new_x, Number * grad_f, UserDataPtr data)
 		Py_DECREF(tempresult);
 	}
 
-	PyObject *arglist;
-	if (user_data != NULL)
-		arglist = Py_BuildValue("(OO)", arrayx, (PyObject *) user_data);
-	else
-		arglist = Py_BuildValue("(O)", arrayx);
+	PyObject *args[] = {arrayx};
+	PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
 
-	PyArrayObject *result = (PyArrayObject *) PyObject_CallObject(
-      myowndata->eval_grad_f_python, arglist);
+	PyArrayObject *result = (PyArrayObject *) PyObject_Call(
+								myowndata->eval_grad_f_python, arglist, callback_kwargs);
 
 	if (result == NULL) {
-    logger("[Error] Python function eval_grad_f returns NULL");
-		PyErr_Print();
-    return FALSE;
-  }
+	  logger("[Error] Python function eval_grad_f returns NULL");
+	  PyErr_Print();
+	  return FALSE;
+	}
   
-  if (!PyArray_Check(result)) {
-    logger("[Error] Python function eval_grad_f returns non-PyArray");
-    Py_DECREF(result);
-    return FALSE;
-  }
+	if (!PyArray_Check(result)) {
+	  logger("[Error] Python function eval_grad_f returns non-PyArray");
+	  Py_DECREF(result);
+	  return FALSE;
+	}
 
 	double *tempdata = (double *)result->data;
 	int i;
@@ -273,7 +266,8 @@ eval_g(Index n, Number * x, Bool new_x, Index m, Number * g, UserDataPtr data)
 	//logger("[Callback:E] eval_g");
 
 	DispatchData *myowndata = (DispatchData *) data;
-	UserDataPtr user_data = (UserDataPtr) myowndata->userdata;
+	PyObject** callback_args = myowndata->callback_args;
+	PyObject* callback_kwargs = myowndata->callback_kwargs;
 
 	if (myowndata->eval_g_python == NULL)
 		PyErr_Print();
@@ -311,14 +305,12 @@ eval_g(Index n, Number * x, Bool new_x, Index m, Number * g, UserDataPtr data)
 		Py_DECREF(tempresult);
 	}
 
-	PyObject *arglist;
-	if (user_data != NULL)
-		arglist = Py_BuildValue("(OO)", arrayx, (PyObject *) user_data);
-	else
-		arglist = Py_BuildValue("(O)", arrayx);
+	PyObject *args[] = {arrayx};
+	PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
 
-	PyArrayObject *result = (PyArrayObject *) PyObject_CallObject(
-      myowndata->eval_g_python, arglist);
+	PyArrayObject *result = (PyArrayObject *) PyObject_Call(myowndata->eval_g_python,
+								arglist, callback_kwargs);
 
   if (result == NULL) {
     logger("[Error] Python function eval_g returns NULL");
@@ -353,7 +345,8 @@ eval_jac_g(Index n, Number * x, Bool new_x,
 	//logger("[Callback:E] eval_jac_g");
 
 	DispatchData *myowndata = (DispatchData *) data;
-	UserDataPtr user_data = (UserDataPtr) myowndata->userdata;
+	PyObject** callback_args = myowndata->callback_args;
+	PyObject* callback_kwargs = myowndata->callback_kwargs;
 
 	int i;
 	long *rowd = NULL;
@@ -378,17 +371,12 @@ eval_jac_g(Index n, Number * x, Bool new_x,
 		if (!arrayx)
 			return FALSE;
 
-		PyObject *arglist;
-
-		if (user_data != NULL)
-			arglist = Py_BuildValue("(OOO)",
-						arrayx, Py_True,
-						(PyObject *) user_data);
-		else
-			arglist = Py_BuildValue("(OO)", arrayx, Py_True);
+		PyObject *args[] = {arrayx, Py_True};
+		PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
 
 		PyObject *result =
-		    PyObject_CallObject(myowndata->eval_jac_g_python, arglist);
+		  PyObject_Call(myowndata->eval_jac_g_python, arglist, callback_kwargs);
 		if (!result) {
 
 			logger("[PyIPOPT] return from eval_jac_g is null\n");
@@ -441,16 +429,12 @@ eval_jac_g(Index n, Number * x, Bool new_x,
 			Py_DECREF(arg1);
 			Py_DECREF(tempresult);
 		}
-		PyObject *arglist;
-		if (user_data != NULL)
-			arglist = Py_BuildValue("(OOO)",
-						arrayx, Py_False,
-						(PyObject *) user_data);
-		else
-			arglist = Py_BuildValue("(OO)", arrayx, Py_False);
+		PyObject *args[] = {arrayx, Py_False};
+		PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
 
-		PyArrayObject *result = (PyArrayObject *) PyObject_CallObject(
-        myowndata->eval_jac_g_python, arglist);
+		PyArrayObject *result = (PyArrayObject *) PyObject_Call(
+									myowndata->eval_jac_g_python, arglist, callback_kwargs);
 
 		if (result == NULL) {
       logger("[Error] Python function eval_jac_g returns NULL");
@@ -492,7 +476,8 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
 	//logger("[Callback:E] eval_h");
 
 	DispatchData *myowndata = (DispatchData *) data;
-	UserDataPtr user_data = (UserDataPtr) myowndata->userdata;
+	PyObject** callback_args = myowndata->callback_args;
+	PyObject* callback_kwargs = myowndata->callback_kwargs;
 
 	int i;
 	npy_intp dims[1];
@@ -502,22 +487,20 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
 		logger("[Error] There is no eval_h assigned");
 		return FALSE;
 	}
+	PyObject *arglist;
 	if (values == NULL) {
     //logger("[Callback:E] eval_h (1a)");
-		PyObject *newx = Py_True;
 		PyObject *objfactor = Py_BuildValue("d", obj_factor);
-		PyObject *lagrange = Py_True;
 
-		PyObject *arglist;
+		PyObject *c_arg_list[] = {
+		  Py_True, /* newx */
+		  Py_True, /* lagrange */
+		  objfactor,
+		  Py_True
+		};
 
-		if (user_data != NULL) {
-			arglist = Py_BuildValue(
-          "(OOOOO)", newx, lagrange, objfactor, Py_True,
-          (PyObject *) user_data);
-    } else {
-			arglist = Py_BuildValue(
-          "(OOOO)", newx, lagrange, objfactor, Py_True);
-    }
+		arglist = build_arg_tuple((PyObject**[]){c_arg_list, callback_args, NULL},
+				  (unsigned int[]){sizeof(c_arg_list)/sizeof(PyObject*), myowndata->n_callback_args});
 
     if (arglist == NULL) {
       logger("[Error] failed to build arglist for eval_h");
@@ -527,7 +510,7 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
       logger("[Logspam] built arglist for eval_h");
     }
 
-		PyObject *result = PyObject_CallObject(myowndata->eval_h_python, arglist);
+    PyObject *result = PyObject_Call(myowndata->eval_h_python, arglist, callback_kwargs);
 
     if (result == NULL) {
       logger("[Error] Python function eval_h returns NULL");
@@ -606,18 +589,13 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
 		if (!lagrangex)
 			return FALSE;
 
-		PyObject *arglist;
+		PyObject *c_arg_list[] = {
+		  arrayx, lagrangex, objfactor, Py_False};
 
-		if (user_data != NULL) {
-			arglist = Py_BuildValue(
-          "(OOOOO)", arrayx, lagrangex, objfactor, Py_False,
-          (PyObject *) user_data);
-    } else {
-			arglist = Py_BuildValue(
-          "(OOOO)", arrayx, lagrangex, objfactor, Py_False);
-    }
-		PyArrayObject *result = (PyArrayObject *) PyObject_CallObject(
-        myowndata->eval_h_python, arglist);
+		arglist = build_arg_tuple((PyObject**[]){c_arg_list, callback_args, NULL},
+				  (unsigned int[]){sizeof(c_arg_list)/sizeof(PyObject*), myowndata->n_callback_args});
+		PyArrayObject *result = (PyArrayObject *) PyObject_Call(
+									myowndata->eval_h_python, arglist, callback_kwargs);
 
 		if (result == NULL) {
       logger("[Error] Python function eval_h returns NULL");

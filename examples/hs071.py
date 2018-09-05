@@ -34,12 +34,12 @@ g_L = array([25.0, 40.0])
 g_U = array([2.0e19, 40.0])
 
 
-def eval_f(x, user_data=None):
+def eval_f(x):
     assert len(x) == nvar
     return x[0] * x[3] * (x[0] + x[1] + x[2]) + x[2]
 
 
-def eval_grad_f(x, user_data=None):
+def eval_grad_f(x):
     assert len(x) == nvar
     grad_f = array([
         x[0] * x[3] + x[3] * (x[0] + x[1] + x[2]),
@@ -50,7 +50,7 @@ def eval_grad_f(x, user_data=None):
     return grad_f
 
 
-def eval_g(x, user_data=None):
+def eval_g(x):
     assert len(x) == nvar
     return array([
         x[0] * x[1] * x[2] * x[3],
@@ -61,7 +61,7 @@ def eval_g(x, user_data=None):
 nnzj = 8
 
 
-def eval_jac_g(x, flag, user_data=None):
+def eval_jac_g(x, flag):
     if flag:
         return (array([0, 0, 0, 0, 1, 1, 1, 1]),
                 array([0, 1, 2, 3, 0, 1, 2, 3]))
@@ -79,7 +79,7 @@ def eval_jac_g(x, flag, user_data=None):
 nnzh = 10
 
 
-def eval_h(x, lagrange, obj_factor, flag, user_data=None):
+def eval_h(x, lagrange, obj_factor, flag):
     if flag:
         hrow = [0, 1, 1, 2, 2, 2, 3, 3, 3, 3]
         hcol = [0, 0, 1, 0, 1, 2, 0, 1, 2, 3]

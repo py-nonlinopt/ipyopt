@@ -4,6 +4,7 @@
 #include "Python.h"
 #include "IpStdCInterface.h"
 #include <stdio.h>
+
 #include "numpy/arrayobject.h"
 
 #ifndef PY_IPOPT_HOOK_
@@ -46,7 +47,9 @@ typedef struct {
 	PyObject *eval_h_python;
 	PyObject *apply_new_python;
 	PyObject *eval_intermediate_callback_python;
-	PyObject *userdata;
+	unsigned int n_callback_args;
+	PyObject **callback_args;
+	PyObject *callback_kwargs;
 } DispatchData;
 
 

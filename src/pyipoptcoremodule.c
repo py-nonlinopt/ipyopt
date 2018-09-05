@@ -101,7 +101,7 @@ static void problem_dealloc(PyObject * self)
 	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-PyObject *solve(PyObject * self, PyObject * args);
+PyObject *solve(PyObject * self, PyObject * args, PyObject *keywords);
 PyObject *set_intermediate_callback(PyObject * self, PyObject * args);
 PyObject *close_model(PyObject * self, PyObject * args);
 
@@ -174,7 +174,7 @@ static PyObject *add_num_option(PyObject * self, PyObject * args)
 }
 
 PyMethodDef problem_methods[] = {
-	{"solve", solve, METH_VARARGS, PYIPOPT_SOLVE_DOC}
+	{"solve", (PyCFunction)solve, METH_VARARGS | METH_KEYWORDS, PYIPOPT_SOLVE_DOC}
 	,
 	{"set_intermediate_callback", set_intermediate_callback, METH_VARARGS,
 	 PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC}
@@ -334,7 +334,9 @@ static PyObject *create(PyObject * obj, PyObject * args)
 	myowndata.eval_jac_g_python = NULL;
 	myowndata.eval_h_python = NULL;
 	myowndata.apply_new_python = NULL;
-	myowndata.userdata = NULL;
+	myowndata.callback_args = NULL;
+	myowndata.n_callback_args = 0;
+	myowndata.callback_kwargs = NULL;
 
 	/* "O!", &PyArray_Type &a_x  */
 	if (!PyArg_ParseTuple(args, "iO!O!iO!O!iiOOOO|OO:pyipoptcreate",
@@ -506,11 +508,7 @@ PyObject *set_intermediate_callback(PyObject * self, PyObject * args)
 	PyObject *intermediate_callback;
 	problem *temp = (problem *) self;
 	IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-	DispatchData myowndata;
 	DispatchData *bigfield = (DispatchData *) (temp->data);
-
-	/* Init the myowndata field */
-	myowndata.eval_intermediate_callback_python = NULL;
 
 	if (!PyArg_ParseTuple(args, "O", &intermediate_callback)) {
 		return NULL;
@@ -551,45 +549,67 @@ PyObject *set_intermediate_callback(PyObject * self, PyObject * args)
 	}
 }
 
-PyObject *solve(PyObject * self, PyObject * args)
+static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args);
+Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
+Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
+static Bool _PyArray_Check(const PyObject* obj) { return PyArray_Check(obj); } // Macro -> function
+static Bool check_args(const PyObject *args);
+static Bool check_kwargs(const PyObject *kwargs);
+
+
+
+PyObject *solve(PyObject * self, PyObject * args, PyObject *keywords)
 {
 	enum ApplicationReturnStatus status;	/* Solve return code */
 	int i;
 	int n;
 
-	/* Return values */
+	// Return values
 	problem *temp = (problem *) self;
 
 	IpoptProblem nlp = (IpoptProblem) (temp->nlp);
 	DispatchData *bigfield = (DispatchData *) (temp->data);
 	int m = temp->m_constraints;
 
-	/* int dX[1]; */
 	npy_intp dX[1];
 	npy_intp dlambda[1];
 
 	PyArrayObject *x = NULL, *mL = NULL, *mU = NULL, *lambda = NULL;
+	PyObject *callback_args = NULL, *callback_kwargs = NULL;
 	Number obj;		/* objective value */
 
 	PyObject *retval = NULL;
 	PyArrayObject *x0 = NULL;
 
-	PyObject *myuserdata = NULL;
-
 	Number *newx0 = NULL;
 
-	if (!PyArg_ParseTuple(args, "O!|O", &PyArray_Type, &x0, &myuserdata)) {
+	unsigned int n_args = 0;
+	PyObject **unpacked_args = NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, keywords, "O!|OO",
+					 (char*[]){"x0", "callback_args", "callback_kwargs", NULL},
+					 &PyArray_Type, &x0,
+					 &callback_args,
+					 &callback_kwargs
+					 )
+	  || !check_type((PyObject*)x0, &_PyArray_Check, "x0", "numpy.ndarray")
+	  || !check_type_optional(callback_kwargs, &check_kwargs, "callback_kwargs", "dict")
+	  || !check_type_optional(callback_args, &check_args, "callback_args", "tuple"))
+	  {
 		retval = NULL;
-		/* clean up and return */
+		// clean up and return
 		if (retval == NULL) {
 			Py_XDECREF(x);
 			Py_XDECREF(mL);
 			Py_XDECREF(mU);
 			Py_XDECREF(lambda);
 		}
+		SAFE_FREE(unpacked_args);
 		SAFE_FREE(newx0);
 		return retval;
 	}
+	if(callback_args != Py_None && callback_args != NULL)
+	  unpack_args(callback_args, &unpacked_args, &n_args);
+	if(callback_kwargs == Py_None) callback_kwargs = NULL;
 	if (x0->nd != 1){ //If x0 is not 1-dimensional then solve will fail and cause a segmentation fault.
 		logger("[ERROR] x0 must be a 1-dimensional array");
 		Py_XDECREF(x);
@@ -598,21 +618,18 @@ PyObject *solve(PyObject * self, PyObject * args)
 		Py_XDECREF(lambda);
 		PyErr_SetString(PyExc_TypeError,
 				"x0 passed to solve is not 1-dimensional.");
+		SAFE_FREE(unpacked_args);
 		return NULL;
 	}
 
-	if (myuserdata != NULL) {
-		bigfield->userdata = myuserdata;
-		/*
-		 * logger("[PyIPOPT] User specified data field to callback
-		 * function.\n");
-		 */
-	}
+	bigfield->callback_args = unpacked_args;
+	bigfield->n_callback_args = n_args;
+	bigfield->callback_kwargs = callback_kwargs;
 	if (nlp == NULL) {
 		PyErr_SetString(PyExc_TypeError,
 				"nlp objective passed to solve is NULL\n Problem created?\n");
 		retval = NULL;
-		/* clean up and return */
+		// clean up and return
 		if (retval == NULL) {
 			Py_XDECREF(x);
 			Py_XDECREF(mL);
@@ -620,13 +637,13 @@ PyObject *solve(PyObject * self, PyObject * args)
 			Py_XDECREF(lambda);
 		}
 		SAFE_FREE(newx0);
+		SAFE_FREE(unpacked_args);
 		return retval;
 	}
 	if (bigfield->eval_h_python == NULL) {
 		AddIpoptStrOption(nlp, "hessian_approximation", "limited-memory");
-		/* logger("Can't find eval_h callback function\n"); */
 	}
-	/* allocate space for the initial point and set the values */
+	// allocate space for the initial point and set the values
 	npy_intp *dim = ((PyArrayObject *) x0)->dimensions;
 	n = dim[0];
 	dX[0] = n;
@@ -642,12 +659,13 @@ PyObject *solve(PyObject * self, PyObject * args)
 			Py_XDECREF(lambda);
 		}
 		SAFE_FREE(newx0);
+		SAFE_FREE(unpacked_args);
 		return retval;
 	}
 	newx0 = (Number *) malloc(sizeof(Number) * n);
 	if (!newx0) {
 		retval = PyErr_NoMemory();
-		/* clean up and return */
+		// clean up and return
 		if (retval == NULL) {
 			Py_XDECREF(x);
 			Py_XDECREF(mL);
@@ -655,13 +673,14 @@ PyObject *solve(PyObject * self, PyObject * args)
 			Py_XDECREF(lambda);
 		}
 		SAFE_FREE(newx0);
+		SAFE_FREE(unpacked_args);
 		return retval;
 	}
 	double *xdata = (double *)x0->data;
 	for (i = 0; i < n; i++)
 		newx0[i] = xdata[i];
 
-	/* Allocate multiplier arrays */ 
+	// Allocate multiplier arrays
 
 	mL = (PyArrayObject *) PyArray_SimpleNew(1, dX, PyArray_DOUBLE);
 	mU = (PyArrayObject *) PyArray_SimpleNew(1, dX, PyArray_DOUBLE);
@@ -669,7 +688,7 @@ PyObject *solve(PyObject * self, PyObject * args)
 	lambda = (PyArrayObject *) PyArray_SimpleNew(1, dlambda, 
 						     PyArray_DOUBLE);
 
-	/* For status code, see IpReturnCodes_inc.h in Ipopt */
+	// For status code, see IpReturnCodes_inc.h in Ipopt
 
 	status =
 	  IpoptSolve(nlp, newx0, NULL, &obj, (double *)lambda->data, 
@@ -694,9 +713,43 @@ PyObject *solve(PyObject * self, PyObject * args)
 	Py_XDECREF(lambda);
 
 	SAFE_FREE(newx0);
+	SAFE_FREE(unpacked_args);
 	return retval;
 }
-
+static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args)
+{
+  unsigned int i, n;
+  n = PyTuple_Size(args);
+  *n_args = n;
+  if(n == 0)
+    *unpacked_args = NULL;
+  else
+    *unpacked_args = malloc(n*sizeof(PyObject*));
+  for(i=0; i<n; i++)
+    (*unpacked_args)[i] = PyTuple_GetItem(args, i);
+}
+static Bool check_args(const PyObject *args)
+{
+  return !(args != NULL && args != Py_None && !PyTuple_Check(args));
+}
+static Bool check_kwargs(const PyObject *kwargs)
+{
+  return (kwargs == NULL || kwargs == Py_None || PyDict_Check(kwargs));
+}
+Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name)
+{
+  if(obj == NULL || checker(obj))
+    return 1;
+  PyErr_Format(PyExc_TypeError, "Wrong type for %s. Required: %s", obj_name, type_name);
+  return 0;
+}
+Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name)
+{
+  if(obj != NULL && check_type_optional(obj, checker, obj_name, type_name))
+    return 1;
+  PyErr_Format(PyExc_TypeError, "Error while parsing %s.", obj_name);
+  return 0;
+}
 PyObject *close_model(PyObject * self, PyObject * args)
 {
 	problem *obj = (problem *) self;
