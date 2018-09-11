@@ -54,7 +54,7 @@ def eval_g(x):
     assert len(x) == nvar
     return array([
         x[0] * x[1] * x[2] * x[3],
-        x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + x[3]*x[3]
+        x[0] * x[0] + x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
     ], float_)
 
 
@@ -122,7 +122,11 @@ pi0 = array([1.0, 1.0])
 
 print("Going to call solve")
 print("x0 = {}".format(x0))
-x, zl, zu, constraint_multipliers, obj, status = nlp.solve(x0)
+zl = zeros(nvar)
+zu = zeros(nvar)
+constraint_multipliers = zeros(ncon)
+x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
+                           mult_x_L=zl, mult_x_U=zu)
 # import pdb; pdb.set_trace()
 nlp.close()
 

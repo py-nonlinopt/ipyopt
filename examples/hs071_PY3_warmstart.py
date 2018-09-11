@@ -127,7 +127,11 @@ pi0 = array([1.0, 1.0])
 print("Going to call solve for 4 iterations")
 print("x0 = {}".format(x0))
 nlp.int_option('max_iter', 4)  # limit the number of max iterations
-x, zl, zu, constraint_multipliers, obj, status = nlp.solve(x0)
+zl = zeros(nvar)
+zu = zeros(nvar)
+constraint_multipliers = zeros(ncon)
+x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
+                           mult_x_L=zl, mult_x_U=zu)
 # import pdb; pdb.set_trace()
 nlp.close()
 
@@ -147,8 +151,8 @@ nlp.num_option('warm_start_slack_bound_push', 1e-8)
 nlp.num_option('warm_start_mult_bound_push', 1e-8)
 nlp.int_option('print_level', 5)
 print("Starting at previous solution and solving again")
-x, zl, zu, constraint_multipliers, obj, status = nlp.solve(x, mult_g=constraint_multipliers,
-                                                           mult_x_L=zl, mult_x_U=zu)
+x, obj, status = nlp.solve(x, mult_g=constraint_multipliers,
+                           mult_x_L=zl, mult_x_U=zu)
 nlp.close()
 
 print("Solution of the primal variables, x")
