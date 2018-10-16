@@ -39,22 +39,24 @@ Bool eval_intermediate_callback(Index alg_mod,
 				Number alpha_du, Number alpha_pr,
 				Index ls_trials, UserDataPtr data);
 
-typedef struct {
+typedef struct
+{
   unsigned int n;
   Index *row, *col;
 } SparsityIndices;
 
-typedef struct {
-	PyObject *eval_f_python;
-	PyObject *eval_grad_f_python;
-	PyObject *eval_g_python;
-	PyObject *eval_jac_g_python;
-	PyObject *eval_h_python;
-	PyObject *apply_new_python;
-	PyObject *eval_intermediate_callback_python;
-	unsigned int n_callback_args;
-	PyObject **callback_args;
-	PyObject *callback_kwargs;
+typedef struct
+{
+  PyObject *eval_f_python;
+  PyObject *eval_grad_f_python;
+  PyObject *eval_g_python;
+  PyObject *eval_jac_g_python;
+  PyObject *eval_h_python;
+  PyObject *apply_new_python;
+  PyObject *eval_intermediate_callback_python;
+  unsigned int n_callback_args;
+  PyObject **callback_args;
+  PyObject *callback_kwargs;
   SparsityIndices sparsity_indices_jac_g, sparsity_indices_hess;
 } DispatchData;
 
@@ -70,11 +72,12 @@ PyObject *problem_getattr(PyObject * self, char *attrname);
 extern int user_log_level;
 void logger(const char *fmt, ...);
 
-typedef struct {
-	PyObject_HEAD IpoptProblem nlp;
-	DispatchData *data;
-	Index n_variables;
-	Index m_constraints;
+typedef struct
+{
+  PyObject_HEAD IpoptProblem nlp;
+  DispatchData *data;
+  Index n_variables;
+  Index m_constraints;
 } problem;
 
 #endif				//  PY_IPOPT_HOOK_

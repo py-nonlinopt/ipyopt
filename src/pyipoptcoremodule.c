@@ -9,7 +9,7 @@
 #include "hook.h"
 
 #ifndef SAFE_FREE
-#define SAFE_FREE(p) {if (p) {free(p); (p)= NULL;}}
+#define SAFE_FREE(p) {if(p) {free(p); (p)= NULL;}}
 #endif
 
 /*
@@ -17,7 +17,7 @@
  */
 
 static char PYIPOPT_SOLVE_DOC[] = "solve(x, [mult_g, mult_x_L, mult_x_U]) -> (x, obj, status)\n \
-  \n                                                        \
+  \n									\
   Call Ipopt to solve problem created before and return  \n \
   a tuple that contains final solution x, final objective function obj, \n \
   and the return status of ipopt. \n \
@@ -28,7 +28,7 @@ static char PYIPOPT_SOLVE_DOC[] = "solve(x, [mult_g, mult_x_L, mult_x_U]) -> (x,
   If passed, these variables are modified.";
 
 static char PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC[] =
-    "set_intermediate_callback(callback_function)\n \
+  "set_intermediate_callback(callback_function)\n \
   \n                                              \
   Set the intermediate callback function.         \
   This gets called each iteration.";
@@ -36,25 +36,25 @@ static char PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC[] =
 static char PYIPOPT_CLOSE_DOC[] = "After all the solving, close the model\n";
 
 static char PYIPOPT_ADD_STR_OPTION_DOC[] =
-    "Set the String (char* in C) option for Ipopt. Refer to the Ipopt \n \
-     document for more information about Ipopt options, or use \n \
-       ipopt --print-options \n \
+  "Set the String (char* in C) option for Ipopt. Refer to the Ipopt \n \
+     document for more information about Ipopt options, or use \n      \
+       ipopt --print-options \n					       \
      to see a list of available options.";
 
 static char PYIPOPT_ADD_INT_OPTION_DOC[] =
-    "Set the Int (int in C) option for Ipopt. Refer to the Ipopt \n \
+  "Set the Int (int in C) option for Ipopt. Refer to the Ipopt \n \
      document for more information about Ipopt options, or use \n \
-       ipopt --print-options \n \
+       ipopt --print-options \n					  \
      to see a list of available options.";
 
 static char PYIPOPT_ADD_NUM_OPTION_DOC[] =
-    "Set the Number (double in C) option for Ipopt. Refer to the Ipopt \n \
-     document for more information about Ipopt options, or use \n \
-       ipopt --print-options \n \
+  "Set the Number (double in C) option for Ipopt. Refer to the Ipopt \n \
+     document for more information about Ipopt options, or use \n	\
+       ipopt --print-options \n						\
      to see a list of available options.";
 
 static char PYIPOPT_CREATE_DOC[] =
-    "create(n, xl, xu, m, gl, gu, nnzj, nnzh, eval_f, eval_grad_f, eval_g, eval_jac_g) -> Boolean\n \
+  "create(n, xl, xu, m, gl, gu, nnzj, nnzh, eval_f, eval_grad_f, eval_g, eval_jac_g) -> Boolean\n \
        \n \
        Create a problem instance and return True if succeed  \n \
        \n \
@@ -92,111 +92,98 @@ static char PYIPOPT_LOG_DOC[] = "set_loglevel(level)\n \
 
 int user_log_level = TERSE;
 
-/* Object Section */
-/* sig of this is void foo(PyO*) */
-static void problem_dealloc(PyObject * self)
+// Object Section
+// sig of this is void foo(PyO*)
+static void problem_dealloc(PyObject *self)
 {
-	problem *temp = (problem *) self;
-	SAFE_FREE(temp->data);
-	Py_TYPE(self)->tp_free((PyObject*)self);
+  problem *temp = (problem*) self;
+  SAFE_FREE(temp->data);
+  Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-PyObject *solve(PyObject * self, PyObject * args, PyObject *keywords);
-PyObject *set_intermediate_callback(PyObject * self, PyObject * args);
-PyObject *close_model(PyObject * self, PyObject * args);
+PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords);
+PyObject *set_intermediate_callback(PyObject *self, PyObject *args);
+PyObject *close_model(PyObject *self, PyObject *args);
 
-static PyObject *add_str_option(PyObject * self, PyObject * args)
+static PyObject *add_str_option(PyObject *self, PyObject *args)
 {
-	problem *temp = (problem *) self;
-	IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-	char *param;
-	char *value;
-	Bool ret;
+  problem *temp = (problem*) self;
+  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
+  char *param;
+  char *value;
+  Bool ret;
 
-	if (!PyArg_ParseTuple(args, "ss:str_option", &param, &value)) {
-		return NULL;
-	}
-	ret = AddIpoptStrOption(nlp, (char *)param, value);
-	if (ret) {
-		Py_INCREF(Py_True);
-		return Py_True;
-	} else {
-		return PyErr_Format(PyExc_ValueError,
-				    "%s is not a valid string option", param);
-	}
+  if(!PyArg_ParseTuple(args, "ss:str_option", &param, &value)) return NULL;
+  ret = AddIpoptStrOption(nlp, (char*)param, value);
+  if(ret)
+    {
+      Py_INCREF(Py_True);
+      return Py_True;
+    }
+  else 
+    return PyErr_Format(PyExc_ValueError, "%s is not a valid string option", param);
 }
 
-static PyObject *add_int_option(PyObject * self, PyObject * args)
+static PyObject *add_int_option(PyObject *self, PyObject *args)
 {
+  problem *temp = (problem*) self;
+  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
+  
+  char *param;
+  int value;
+  
+  Bool ret;
 
-	problem *temp = (problem *) self;
-	IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-
-	char *param;
-	int value;
-
-	Bool ret;
-
-	if (!PyArg_ParseTuple(args, "si:int_option", &param, &value)) {
-		return NULL;
-	}
-	ret = AddIpoptIntOption(nlp, (char *)param, value);
-	if (ret) {
-		Py_INCREF(Py_True);
-		return Py_True;
-	} else {
-		return PyErr_Format(PyExc_ValueError,
-				    "%s is not a valid int option", param);
-	}
+  if(!PyArg_ParseTuple(args, "si:int_option", &param, &value)) return NULL;
+  ret = AddIpoptIntOption(nlp, (char*)param, value);
+  if(ret)
+    {
+      Py_INCREF(Py_True);
+      return Py_True;
+  }
+  else
+    return PyErr_Format(PyExc_ValueError, "%s is not a valid int option", param);
 }
 
-static PyObject *add_num_option(PyObject * self, PyObject * args)
+static PyObject *add_num_option(PyObject *self, PyObject *args)
 {
-	problem *temp = (problem *) self;
-	IpoptProblem nlp = (IpoptProblem) (temp->nlp);
+  problem *temp = (problem*) self;
+  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
 
-	char *param;
-	double value;
+  char *param;
+  double value;
 
-	Bool ret;
+  Bool ret;
 
-	if (!PyArg_ParseTuple(args, "sd:num_option", &param, &value)) {
-		return NULL;
-	}
-	ret = AddIpoptNumOption(nlp, (char *)param, value);
-	if (ret) {
-		Py_INCREF(Py_True);
-		return Py_True;
-	} else {
-		return PyErr_Format(PyExc_ValueError,
-				    "%s is not a valid num option", param);
-	}
+  if(!PyArg_ParseTuple(args, "sd:num_option", &param, &value)) return NULL;
+  ret = AddIpoptNumOption(nlp, (char*)param, value);
+  if(ret)
+    {
+      Py_INCREF(Py_True);
+      return Py_True;
+    }
+  else
+    return PyErr_Format(PyExc_ValueError, "%s is not a valid num option", param);
 }
 
-PyMethodDef problem_methods[] = {
-	{"solve", (PyCFunction)solve, METH_VARARGS | METH_KEYWORDS, PYIPOPT_SOLVE_DOC}
-	,
-	{"set_intermediate_callback", set_intermediate_callback, METH_VARARGS,
-	 PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC}
-	,
-	{"close", close_model, METH_VARARGS, PYIPOPT_CLOSE_DOC}
-	,
-	{"int_option", add_int_option, METH_VARARGS, PYIPOPT_ADD_INT_OPTION_DOC}
-	,
-	{"str_option", add_str_option, METH_VARARGS, PYIPOPT_ADD_STR_OPTION_DOC}
-	,
-	{"num_option", add_num_option, METH_VARARGS, PYIPOPT_ADD_NUM_OPTION_DOC}
-	,
-	{NULL, NULL}
-	,
-};
+PyMethodDef problem_methods[] =
+  {
+   {"solve", (PyCFunction)solve, METH_VARARGS | METH_KEYWORDS, PYIPOPT_SOLVE_DOC},
+   {"set_intermediate_callback", set_intermediate_callback, METH_VARARGS,
+    PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC},
+   {"close", close_model, METH_VARARGS, PYIPOPT_CLOSE_DOC},
+   {"int_option", add_int_option, METH_VARARGS, PYIPOPT_ADD_INT_OPTION_DOC},
+   {"str_option", add_str_option, METH_VARARGS, PYIPOPT_ADD_STR_OPTION_DOC},
+   {"num_option", add_num_option, METH_VARARGS, PYIPOPT_ADD_NUM_OPTION_DOC},
+   {NULL, NULL},
+  };
 
 #if PY_MAJOR_VERSION < 3
-PyObject *problem_getattr(PyObject * self, char *attrname)
+PyObject *problem_getattr(PyObject *self, char *attrname)
 {
-	PyObject *result = NULL;
-	result = Py_FindMethod(problem_methods, self, attrname);
-	return result;
+  PyObject *result = NULL;
+  result = Py_FindMethod(problem_methods, self, attrname);
+  return result;
 }
 
 
@@ -204,66 +191,68 @@ PyObject *problem_getattr(PyObject * self, char *attrname)
  * had to replace PyObject_HEAD_INIT(&PyType_Type) in order to get this to
  * compile on Windows
  */
-PyTypeObject IpoptProblemType = {
-	PyObject_HEAD_INIT(NULL)
-	    0,			/* ob_size */
-	"pyipoptcore.Problem",	/* tp_name */
-	sizeof(problem),	/* tp_basicsize */
-	0,			/* tp_itemsize */
-	problem_dealloc,	/* tp_dealloc */
-	0,			/* tp_print */
-	problem_getattr,	/* tp_getattr */
-	0,			/* tp_setattr */
-	0,			/* tp_compare */
-	0,			/* tp_repr */
-	0,			/* tp_as_number */
-	0,			/* tp_as_sequence */
-	0,			/* tp_as_mapping */
-	0,			/* tp_hash */
-	0,			/* tp_call */
-	0,			/* tp_str */
-	0,			/* tp_getattro */
-	0,			/* tp_setattro */
-	0,			/* tp_as_buffer */
-	Py_TPFLAGS_DEFAULT,	/* tp_flags */
-	"The IPOPT problem object in python",	/* tp_doc */
-};
+PyTypeObject IpoptProblemType =
+  {
+   PyObject_HEAD_INIT(NULL)
+   0,			// ob_size
+   "pyipoptcore.Problem",	// tp_name
+   sizeof(problem),	// tp_basicsize
+   0,			// tp_itemsize
+   problem_dealloc,	// tp_dealloc
+   0,			// tp_print
+   problem_getattr,	// tp_getattr
+   0,			// tp_setattr
+   0,			// tp_compare
+   0,			// tp_repr
+   0,			// tp_as_number
+   0,			// tp_as_sequence
+   0,			// tp_as_mapping
+   0,			// tp_hash
+   0,			// tp_call
+   0,			// tp_str
+   0,			// tp_getattro
+   0,			// tp_setattro
+   0,			// tp_as_buffer
+   Py_TPFLAGS_DEFAULT,	// tp_flags
+   "The IPOPT problem object in python",	// tp_doc
+  };
 
 #else
 
 PyDoc_STRVAR(IpoptProblemType__doc__, "The IPOPT problem object in python");
 
-PyTypeObject IpoptProblemType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "pyipoptcore.Problem",	/* tp_name */
-    sizeof(problem),         /*tp_basicsize*/
-    0,                       /*tp_itemsize*/
-    /* methods */
-    (destructor)problem_dealloc,   /*tp_dealloc*/
-    (printfunc)0,           /*tp_print*/
-    0,                      /*tp_getattr*/
-    0,                      /*tp_setattr*/
-    0,                      /*tp_reserved*/
-    (reprfunc)0,            /*tp_repr*/
-    0,                      /*tp_as_number*/
-    0,                      /*tp_as_sequence*/
-    0,                      /*tp_as_mapping*/
-    (hashfunc)0,            /*tp_hash*/
-    (ternaryfunc)0,         /*tp_call*/
-    (reprfunc)0,            /*tp_str*/
-    (getattrofunc)0,        /* tp_getattro */
-    (setattrofunc)0,        /* tp_setattro */
-    0,                      /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,     /*tp_flags*/
-    IpoptProblemType__doc__,    /* tp_doc - Documentation string */
-    (traverseproc)0,        /* tp_traverse */
-    (inquiry)0,                /* tp_clear */
-    0,                              /* tp_richcompare */
-    0,                              /* tp_weaklistoffset */
-    0,                              /* tp_iter */
-    0,                              /* tp_iternext */
-    problem_methods,               /* tp_methods */
-};
+PyTypeObject IpoptProblemType =
+  {
+   PyVarObject_HEAD_INIT(NULL, 0)
+   "pyipoptcore.Problem",	// tp_name
+   sizeof(problem),         //tp_basicsize*/
+   0,                       //tp_itemsize*/
+   // methods
+   (destructor)problem_dealloc,   //tp_dealloc*/
+   (printfunc)0,           //tp_print*/
+   0,                      //tp_getattr*/
+   0,                      //tp_setattr*/
+   0,                      //tp_reserved*/
+   (reprfunc)0,            //tp_repr*/
+   0,                      //tp_as_number*/
+   0,                      //tp_as_sequence*/
+   0,                      //tp_as_mapping*/
+   (hashfunc)0,            //tp_hash*/
+   (ternaryfunc)0,         //tp_call*/
+   (reprfunc)0,            //tp_str*/
+   (getattrofunc)0,        // tp_getattro
+   (setattrofunc)0,        // tp_setattro
+   0,                      // tp_as_buffer
+   Py_TPFLAGS_DEFAULT,     //tp_flags*/
+   IpoptProblemType__doc__,    // tp_doc - Documentation string
+   (traverseproc)0,        // tp_traverse
+   (inquiry)0,                // tp_clear
+   0,                              // tp_richcompare
+   0,                              // tp_weaklistoffset
+   0,                              // tp_iter
+   0,                              // tp_iternext
+   problem_methods,               // tp_methods
+  };
 #endif
 
 /*
@@ -271,19 +260,18 @@ PyTypeObject IpoptProblemType = {
  * either in pyipoptcore or in the parent package.
  * They are currently #defined in a header file.
  */
-static PyObject *set_loglevel(PyObject * obj, PyObject * args)
+static PyObject *set_loglevel(PyObject *obj, PyObject *args)
 {
-	int l;
-	if (!PyArg_ParseTuple(args, "i", &l)) {
-		PySys_WriteStdout("l is %d \n", l);
-		return NULL;
-	}
-	if (l < 0 || l > 2) {
-		return NULL;
-	}
-	user_log_level = l;
-	Py_INCREF(Py_True);
-	return Py_True;
+  int l;
+  if(!PyArg_ParseTuple(args, "i", &l))
+    {
+      PySys_WriteStdout("l is %d \n", l);
+      return NULL;
+    }
+  if(l < 0 || l > 2) return NULL;
+  user_log_level = l;
+  Py_INCREF(Py_True);
+  return Py_True;
 }
 
 static void sparsity_indices_allocate(SparsityIndices *idx, unsigned int n)
@@ -304,20 +292,21 @@ static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx)
   if(!PyTuple_Check(obj))
     {
       PyErr_Format(PyExc_TypeError, "Sparsity info: a tuple of size 2 is needed.");
-      return 0;
+      return FALSE;
     }
   if(PyTuple_Size(obj) != 2)
     {
       PyErr_Format(PyExc_TypeError, "Sparsity info: a tuple of size 2 is needed. Found tuple of size %d", PyTuple_Size(obj));
-      return 0;
+      return FALSE;
     }
   rows = PyTuple_GetItem(obj, 0);
   cols = PyTuple_GetItem(obj, 1);
   n = PyObject_Length(rows);
   if(n != PyObject_Length(cols))
     {
-      PyErr_Format(PyExc_TypeError, "Sparsity info: length of row indices (%d) does not match lenth of column indices (%d)", n, PyObject_Length(cols));
-      return 0;
+      PyErr_Format(PyExc_TypeError, "Sparsity info: length of row indices (%d) does not match lenth of column indices (%d)",
+		   n, PyObject_Length(cols));
+      return FALSE;
     }
   sparsity_indices_allocate(idx, n);
   PyObject *row_iter = PyObject_GetIter(rows);
@@ -333,183 +322,184 @@ static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx)
 	{
 	  PyErr_Format(PyExc_TypeError, "Sparsity info: Row an column indices must be integers");
 	  sparsity_indices_free(idx);
-	  return 0;
+	  return FALSE;
 	}
     }
-  return 1;
+  return TRUE;
 }
 
 
-static PyObject *create(PyObject * obj, PyObject * args)
+static PyObject *create(PyObject *obj, PyObject *args)
 {
-	PyObject *applynew = NULL;
+  PyObject *applynew = NULL;
+  
+  DispatchData myowndata = {
+			    .eval_f_python = NULL,
+			    .eval_grad_f_python = NULL,
+			    .eval_g_python = NULL,
+			    .eval_jac_g_python = NULL,
+			    .eval_h_python = NULL,
+			    .apply_new_python = NULL,
+			    .callback_args = NULL,
+			    .n_callback_args = 0,
+			    .callback_kwargs = NULL,
+			    .sparsity_indices_jac_g = { 0 },
+			    .sparsity_indices_hess = { 0 }
+  };
 
-	DispatchData myowndata = {
-				  .eval_f_python = NULL,
-				  .eval_grad_f_python = NULL,
-				  .eval_g_python = NULL,
-				  .eval_jac_g_python = NULL,
-				  .eval_h_python = NULL,
-				  .apply_new_python = NULL,
-				  .callback_args = NULL,
-				  .n_callback_args = 0,
-				  .callback_kwargs = NULL,
-				  .sparsity_indices_jac_g = { 0 },
-				  .sparsity_indices_hess = { 0 }
-	};
-
-	/*
-	 * I have to create a new python object here, return this python object
-	 */
-
-	int n;			/* Number of variables */
-	PyArrayObject *xL = NULL;
-	PyArrayObject *xU = NULL;
-	int m;			/* Number of constraints */
-	PyArrayObject *gL = NULL;
-	PyArrayObject *gU = NULL;
-
-	problem *object = NULL;
-
-	Number *x_L = NULL;	/* lower bounds on x */
-	Number *x_U = NULL;	/* upper bounds on x */
-	Number *g_L = NULL;	/* lower bounds on g */
-	Number *g_U = NULL;	/* upper bounds on g */
-
-	double *xldata, *xudata;
-	double *gldata, *gudata;
-
-	int i;
-
-	DispatchData *dp = NULL;
-
-	PyObject *sparsity_indices_jac_g = NULL;
-	PyObject *sparsity_indices_hess = NULL;
-
-	/* Init the myowndata field */
-
-	/* "O!", &PyArray_Type &a_x  */
-	if (!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OO:pyipoptcreate",
-			      &n,
-			      &PyArray_Type, &xL,
-			      &PyArray_Type, &xU,
-			      &m,
-			      &PyArray_Type, &gL,
-			      &PyArray_Type, &gU,
-			      &sparsity_indices_jac_g,
-			      &sparsity_indices_hess,
-			      &myowndata.eval_f_python,
-			      &myowndata.eval_grad_f_python,
-			      &myowndata.eval_g_python,
-			      &myowndata.eval_jac_g_python,
-			      &myowndata.eval_h_python,
-			      &applynew)
-	    || !parse_sparsity_indices(sparsity_indices_jac_g, &myowndata.sparsity_indices_jac_g))
-	  {
-	    SAFE_FREE(x_L);
-	    SAFE_FREE(x_U);
-	    SAFE_FREE(g_L);
-	    SAFE_FREE(g_U);
-	    return NULL;
-	  }
-	if (!PyCallable_Check(myowndata.eval_f_python)
-	    || !PyCallable_Check(myowndata.eval_grad_f_python)
-	    || !PyCallable_Check(myowndata.eval_g_python)
-	    || !PyCallable_Check(myowndata.eval_jac_g_python)) {
-		PyErr_SetString(PyExc_TypeError,
-				"Need a callable object for callback functions");
-		SAFE_FREE(x_L);
-		SAFE_FREE(x_U);
-		SAFE_FREE(g_L);
-		SAFE_FREE(g_U);
-		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-		sparsity_indices_free(&myowndata.sparsity_indices_hess);
-		return NULL;
+  /*
+   * I have to create a new python object here, return this python object
+   */
+  
+  int n;			// Number of variables
+  PyArrayObject *xL = NULL;
+  PyArrayObject *xU = NULL;
+  int m;			// Number of constraints
+  PyArrayObject *gL = NULL;
+  PyArrayObject *gU = NULL;
+  
+  problem *object = NULL;
+  
+  Number *x_L = NULL;	// lower bounds on x
+  Number *x_U = NULL;	// upper bounds on x
+  Number *g_L = NULL;	// lower bounds on g
+  Number *g_U = NULL;	// upper bounds on g
+  
+  double *xldata, *xudata;
+  double *gldata, *gudata;
+  
+  int i;
+  
+  DispatchData *dp = NULL;
+  
+  PyObject *sparsity_indices_jac_g = NULL;
+  PyObject *sparsity_indices_hess = NULL;
+  
+  // Init the myowndata field
+  if(!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OO:pyipoptcreate",
+		       &n,
+		       &PyArray_Type, &xL,
+		       &PyArray_Type, &xU,
+		       &m,
+		       &PyArray_Type, &gL,
+		       &PyArray_Type, &gU,
+		       &sparsity_indices_jac_g,
+		       &sparsity_indices_hess,
+		       &myowndata.eval_f_python,
+		       &myowndata.eval_grad_f_python,
+		       &myowndata.eval_g_python,
+		       &myowndata.eval_jac_g_python,
+		       &myowndata.eval_h_python,
+		       &applynew)
+     || !parse_sparsity_indices(sparsity_indices_jac_g, &myowndata.sparsity_indices_jac_g))
+    {
+      SAFE_FREE(x_L);
+      SAFE_FREE(x_U);
+      SAFE_FREE(g_L);
+      SAFE_FREE(g_U);
+      return NULL;
+    }
+  if(!PyCallable_Check(myowndata.eval_f_python)
+     || !PyCallable_Check(myowndata.eval_grad_f_python)
+     || !PyCallable_Check(myowndata.eval_g_python)
+     || !PyCallable_Check(myowndata.eval_jac_g_python))
+    {
+      PyErr_SetString(PyExc_TypeError, "Need a callable object for callback functions");
+      SAFE_FREE(x_L);
+      SAFE_FREE(x_U);
+      SAFE_FREE(g_L);
+      SAFE_FREE(g_U);
+      sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+      sparsity_indices_free(&myowndata.sparsity_indices_hess);
+      return NULL;
+    }
+  if(myowndata.eval_h_python != NULL)
+    {
+      if(!PyCallable_Check(myowndata.eval_h_python))
+	{
+	  PyErr_SetString(PyExc_TypeError, "Need a callable object for function h.");
+	  SAFE_FREE(x_L);
+	  SAFE_FREE(x_U);
+	  SAFE_FREE(g_L);
+	  SAFE_FREE(g_U);
+	  sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+	  sparsity_indices_free(&myowndata.sparsity_indices_hess);
+	  return NULL;
 	}
-	if (myowndata.eval_h_python != NULL) {
-		if(!PyCallable_Check(myowndata.eval_h_python)) {
-			PyErr_SetString(PyExc_TypeError,
-					"Need a callable object for function h.");
-			SAFE_FREE(x_L);
-			SAFE_FREE(x_U);
-			SAFE_FREE(g_L);
-			SAFE_FREE(g_U);
-			sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-			sparsity_indices_free(&myowndata.sparsity_indices_hess);
-			return NULL;
-		}
-		if(!parse_sparsity_indices(sparsity_indices_hess, &myowndata.sparsity_indices_hess))
-		  {
-		    SAFE_FREE(x_L);
-		    SAFE_FREE(x_U);
-		    SAFE_FREE(g_L);
-		    SAFE_FREE(g_U);
-		    sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-		    sparsity_indices_free(&myowndata.sparsity_indices_hess);
-		    return NULL;
-		}
-
-	} else {
-		logger("[PyIPOPT] Ipopt will use Hessian approximation.\n");
+      if(!parse_sparsity_indices(sparsity_indices_hess, &myowndata.sparsity_indices_hess))
+	{
+	  SAFE_FREE(x_L);
+	  SAFE_FREE(x_U);
+	  SAFE_FREE(g_L);
+	  SAFE_FREE(g_U);
+	  sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+	  sparsity_indices_free(&myowndata.sparsity_indices_hess);
+	  return NULL;
 	}
-
-	if (applynew != NULL) {
-		if (PyCallable_Check(applynew)) {
-			myowndata.apply_new_python = applynew;
-		} else {
-			PyErr_SetString(PyExc_TypeError,
-					"Need a callable object for function applynew.");
-			SAFE_FREE(x_L);
-			SAFE_FREE(x_U);
-			SAFE_FREE(g_L);
-			SAFE_FREE(g_U);
-			sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-			sparsity_indices_free(&myowndata.sparsity_indices_hess);
-			return NULL;
-		}
+  }
+  else logger("[PyIPOPT] Ipopt will use Hessian approximation.\n");
+  
+  if(applynew != NULL)
+    {
+      if(PyCallable_Check(applynew))
+	  myowndata.apply_new_python = applynew;
+      else
+	{
+	  PyErr_SetString(PyExc_TypeError, "Need a callable object for function applynew.");
+	  SAFE_FREE(x_L);
+	  SAFE_FREE(x_U);
+	  SAFE_FREE(g_L);
+	  SAFE_FREE(g_U);
+	  sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+	  sparsity_indices_free(&myowndata.sparsity_indices_hess);
+	  return NULL;
 	}
-	if (m < 0 || n < 0) {
-		PyErr_SetString(PyExc_TypeError, "m or n can't be negative");
-		SAFE_FREE(x_L);
-		SAFE_FREE(x_U);
-		SAFE_FREE(g_L);
-		SAFE_FREE(g_U);
-		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-		sparsity_indices_free(&myowndata.sparsity_indices_hess);
-		return NULL;
-	}
-	x_L = (Number *) malloc(sizeof(Number) * n);
-	x_U = (Number *) malloc(sizeof(Number) * n);
-	if (!x_L || !x_U) {
-		SAFE_FREE(x_L);
-		SAFE_FREE(x_U);
-		SAFE_FREE(g_L);
-		SAFE_FREE(g_U);
-		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-		sparsity_indices_free(&myowndata.sparsity_indices_hess);
-		return PyErr_NoMemory();
-	}
-	xldata = (double *)xL->data;
-	xudata = (double *)xU->data;
-	for (i = 0; i < n; i++) {
-		x_L[i] = xldata[i];
-		x_U[i] = xudata[i];
-	}
+    }
+  if(m < 0 || n < 0)
+    {
+      PyErr_SetString(PyExc_TypeError, "m or n can't be negative");
+      SAFE_FREE(x_L);
+      SAFE_FREE(x_U);
+      SAFE_FREE(g_L);
+      SAFE_FREE(g_U);
+      sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+      sparsity_indices_free(&myowndata.sparsity_indices_hess);
+      return NULL;
+    }
+  x_L = (Number*) malloc(sizeof(Number) * n);
+  x_U = (Number*) malloc(sizeof(Number) * n);
+  if(!x_L || !x_U)
+    {
+      SAFE_FREE(x_L);
+      SAFE_FREE(x_U);
+      SAFE_FREE(g_L);
+      SAFE_FREE(g_U);
+      sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+      sparsity_indices_free(&myowndata.sparsity_indices_hess);
+      return PyErr_NoMemory();
+    }
+  xldata = (double*)xL->data;
+  xudata = (double*)xU->data;
+  for(i=0; i<n; i++)
+    {
+      x_L[i] = xldata[i];
+      x_U[i] = xudata[i];
+    }
 
-	g_L = (Number *) malloc(sizeof(Number) * m);
-	g_U = (Number *) malloc(sizeof(Number) * m);
-	if (!g_L || !g_U)
-		PyErr_NoMemory();
+  g_L = (Number*) malloc(sizeof(Number) * m);
+  g_U = (Number*) malloc(sizeof(Number) * m);
+  if(!g_L || !g_U) PyErr_NoMemory();
+  
+  gldata = (double*)gL->data;
+  gudata = (double*)gU->data;
+  
+  for(i=0; i<m; i++)
+    {
+      g_L[i] = gldata[i];
+      g_U[i] = gudata[i];
+    }
 
-	gldata = (double *)gL->data;
-	gudata = (double *)gU->data;
-
-	for (i = 0; i < m; i++) {
-		g_L[i] = gldata[i];
-		g_U[i] = gudata[i];
-	}
-
-  /* Grab the callback objects because we want to use them later. */
+  // Grab the callback objects because we want to use them later.
   Py_XINCREF(myowndata.eval_f_python);
   Py_XINCREF(myowndata.eval_grad_f_python);
   Py_XINCREF(myowndata.eval_g_python);
@@ -517,107 +507,92 @@ static PyObject *create(PyObject * obj, PyObject * args)
   Py_XINCREF(myowndata.eval_h_python);
   Py_XINCREF(applynew);
 
-	/* create the Ipopt Problem */
+  // create the Ipopt Problem
 
-	int C_indexstyle = 0;
-	IpoptProblem thisnlp = CreateIpoptProblem(n,
-						  x_L, x_U, m, g_L, g_U,
-						  myowndata.sparsity_indices_jac_g.n,
-						  myowndata.sparsity_indices_hess.n,
-						  C_indexstyle,
-						  &eval_f, &eval_g,
-						  &eval_grad_f,
-						  &eval_jac_g, &eval_h);
-	logger("[PyIPOPT] Problem created");
-	if (!thisnlp) {
-		PyErr_SetString(PyExc_MemoryError, "Cannot create IpoptProblem instance");
-		SAFE_FREE(x_L);
-		SAFE_FREE(x_U);
-		SAFE_FREE(g_L);
-		SAFE_FREE(g_U);
-		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-		sparsity_indices_free(&myowndata.sparsity_indices_hess);
-		return NULL;
+  int C_indexstyle = 0;
+  IpoptProblem thisnlp = CreateIpoptProblem(n,
+					    x_L, x_U, m, g_L, g_U,
+					    myowndata.sparsity_indices_jac_g.n,
+					    myowndata.sparsity_indices_hess.n,
+					    C_indexstyle,
+					    &eval_f, &eval_g,
+					    &eval_grad_f,
+					    &eval_jac_g, &eval_h);
+  logger("[PyIPOPT] Problem created");
+  if(!thisnlp)
+    {
+      PyErr_SetString(PyExc_MemoryError, "Cannot create IpoptProblem instance");
+      SAFE_FREE(x_L);
+      SAFE_FREE(x_U);
+      SAFE_FREE(g_L);
+      SAFE_FREE(g_U);
+      sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+      sparsity_indices_free(&myowndata.sparsity_indices_hess);
+      return NULL;
+    }
+  object = PyObject_NEW(problem, &IpoptProblemType);
+  
+  if(object != NULL)
+    {
+      object->n_variables = n;
+      object->m_constraints = m;
+      object->nlp = thisnlp;
+      dp = (DispatchData*) malloc(sizeof(DispatchData));
+      if(!dp)
+	{
+	  SAFE_FREE(x_L);
+	  SAFE_FREE(x_U);
+	  SAFE_FREE(g_L);
+	  SAFE_FREE(g_U);
+	  sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+	  sparsity_indices_free(&myowndata.sparsity_indices_hess);
+	  return PyErr_NoMemory();
 	}
-	object = PyObject_NEW(problem, &IpoptProblemType);
-
-	if (object != NULL) {
-		object->n_variables = n;
-		object->m_constraints = m;
-		object->nlp = thisnlp;
-		dp = (DispatchData *) malloc(sizeof(DispatchData));
-		if (!dp) {
-			SAFE_FREE(x_L);
-			SAFE_FREE(x_U);
-			SAFE_FREE(g_L);
-			SAFE_FREE(g_U);
-			sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-			sparsity_indices_free(&myowndata.sparsity_indices_hess);
-			return PyErr_NoMemory();
-		}
-		memcpy((void *)dp, (void *)&myowndata, sizeof(DispatchData));
-		object->data = dp;
-		SAFE_FREE(x_L);
-		SAFE_FREE(x_U);
-		SAFE_FREE(g_L);
-		SAFE_FREE(g_U);
-		return (PyObject *) object;
-	} else {
-		PyErr_SetString(PyExc_MemoryError, "Can't create a new Problem instance");
-		SAFE_FREE(x_L);
-		SAFE_FREE(x_U);
-		SAFE_FREE(g_L);
-		SAFE_FREE(g_U);
-		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
-		sparsity_indices_free(&myowndata.sparsity_indices_hess);
-		return NULL;
-	}
+      memcpy((void*)dp, (void*)&myowndata, sizeof(DispatchData));
+      object->data = dp;
+      SAFE_FREE(x_L);
+      SAFE_FREE(x_U);
+      SAFE_FREE(g_L);
+      SAFE_FREE(g_U);
+      return (PyObject*) object;
+    }
+  else
+    {
+      PyErr_SetString(PyExc_MemoryError, "Can't create a new Problem instance");
+      SAFE_FREE(x_L);
+      SAFE_FREE(x_U);
+      SAFE_FREE(g_L);
+      SAFE_FREE(g_U);
+      sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+      sparsity_indices_free(&myowndata.sparsity_indices_hess);
+      return NULL;
+    }
 }
 
-PyObject *set_intermediate_callback(PyObject * self, PyObject * args)
+PyObject *set_intermediate_callback(PyObject *self, PyObject *args)
 {
-	PyObject *intermediate_callback;
-	problem *temp = (problem *) self;
-	IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-	DispatchData *bigfield = (DispatchData *) (temp->data);
-
-	if (!PyArg_ParseTuple(args, "O", &intermediate_callback)) {
-		return NULL;
-	}
-	if (!PyCallable_Check(intermediate_callback)) {
-		PyErr_SetString(PyExc_TypeError,
-				"Need a callable object for function!");
-		return NULL;
-	} else {
-
-		bigfield->eval_intermediate_callback_python =
-		    intermediate_callback;
-
-		/* Put a Python function object into this data structure */
-		/*
-		 * myowndata.eval_intermediate_callback_python =
-		 * intermediate_callback;
-		 */
-
-		/* DispatchData *dp = malloc(sizeof(DispatchData)); */
-		/*
-		 * memcpy((void*)dp, (void*)&myowndata,
-		 * sizeof(DispatchData));
-		 */
-		/* bigfield = dp; */
-		/*
-		 * logger( "qqq: inside set_intermediate_callback, bigfield
-		 * is %p\n", bigfield ) ;
-		 */
-		/*
-		 * logger("[PyIPOPT] User specified data field to callback
-		 * function.\n");
-		 */
-
-		SetIntermediateCallback(nlp, eval_intermediate_callback);
-		Py_INCREF(Py_True);
-		return Py_True;
-	}
+  PyObject *intermediate_callback;
+  problem *temp = (problem*) self;
+  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
+  DispatchData *bigfield = (DispatchData*) (temp->data);
+  
+  if(!PyArg_ParseTuple(args, "O", &intermediate_callback)) return NULL;
+  if(!PyCallable_Check(intermediate_callback))
+    {
+      PyErr_SetString(PyExc_TypeError, "Need a callable object for function!");
+      return NULL;
+    }
+  else
+    {
+      
+      bigfield->eval_intermediate_callback_python =
+	intermediate_callback;
+      
+      // Put a Python function object into this data structure
+      SetIntermediateCallback(nlp, eval_intermediate_callback);
+      Py_INCREF(Py_True);
+      return Py_True;
+    }
 }
 
 static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args);
@@ -628,159 +603,150 @@ static Bool check_args(const PyObject *args);
 static Bool check_kwargs(const PyObject *kwargs);
 
 
-#define SOLVE_CLEANUP() {  \
-  /* clean up and return */ \
-  if (retval == NULL) {   \
-    Py_XDECREF(x);        \
-    Py_XDECREF(mL);       \
-    Py_XDECREF(mU);       \
-    Py_XDECREF(lambda);   \
-  }                       \
-  SAFE_FREE(newx0);       \
-  SAFE_FREE(unpacked_args); \
-  return retval;          \
+#define SOLVE_CLEANUP() \
+  {						\
+    if(retval == NULL) {			\
+      Py_XDECREF(x);				\
+      Py_XDECREF(mL);				\
+      Py_XDECREF(mU);				\
+      Py_XDECREF(lambda);			\
+    }						\
+    SAFE_FREE(newx0);				\
+    SAFE_FREE(unpacked_args);			\
+    return retval;				\
   }
 
-#define SOLVE_CLEANUP_NULL() { \
-  retval = NULL;               \
-  SOLVE_CLEANUP()              \
-}
+#define SOLVE_CLEANUP_NULL() \
+  {			       \
+    retval = NULL;	       \
+    SOLVE_CLEANUP();	       \
+  }
 
-#define SOLVE_CLEANUP_MEMORY() { \
-  retval = PyErr_NoMemory();     \
-  SOLVE_CLEANUP()                \
-}
+#define SOLVE_CLEANUP_MEMORY()	 \
+  {				 \
+    retval = PyErr_NoMemory();	 \
+    SOLVE_CLEANUP();		 \
+  }
 
-#define SOLVE_CLEANUP_TYPE(err) {          \
-  PyErr_SetString(PyExc_TypeError, err);   \
-  retval = NULL;                           \
-  SOLVE_CLEANUP()                          \
-}
+#define SOLVE_CLEANUP_TYPE(err) \
+  {					   \
+    PyErr_SetString(PyExc_TypeError, err); \
+    retval = NULL;			   \
+    SOLVE_CLEANUP();			   \
+  }
 
-PyObject *solve(PyObject * self, PyObject * args, PyObject *keywords)
+PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords)
 {
-	enum ApplicationReturnStatus status;	/* Solve return code */
-	int i;
-	int n;
+  enum ApplicationReturnStatus status;	// Solve return code
+  int i;
+  int n;
+  
+  // Return values
+  problem *temp = (problem*) self;
+  
+  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
+  DispatchData *bigfield = (DispatchData*) (temp->data);
+  int m = temp->m_constraints;
+  
+  npy_intp dX[1];
+  
+  PyArrayObject *x = NULL, *mL = NULL, *mU = NULL, *lambda = NULL;
+  double *mL_data=NULL, *mU_data=NULL, *lambda_data=NULL;
+  PyObject *callback_args = NULL, *callback_kwargs = NULL;
+  Number obj; // objective value
+  
+  PyObject *retval = NULL;
+  PyArrayObject *x0 = NULL;
+  
+  Number *newx0 = NULL;
+  
+  unsigned int n_args = 0;
+  PyObject **unpacked_args = NULL;
+  if(!PyArg_ParseTupleAndKeywords(args, keywords, "O!|OO$O!O!O!",
+				  (char*[]){"x0", "callback_args", "callback_kwargs", "mult_g", "mult_x_L", "mult_x_U", NULL},
+				  &PyArray_Type, &x0,
+				  &callback_args,
+				  &callback_kwargs,
+				  &PyArray_Type, &lambda, // mult_g 
+				  &PyArray_Type, &mL, // mult_x_L
+				  &PyArray_Type, &mU) // mult_x_Y
+     || !check_type((PyObject*)x0, &_PyArray_Check, "x0", "numpy.ndarray")
+     || !check_type_optional(callback_kwargs, &check_kwargs, "callback_kwargs", "dict")
+     || !check_type_optional(callback_args, &check_args, "callback_args", "tuple"))
+    {
+      SOLVE_CLEANUP_NULL();
+    }
+  if(callback_args != Py_None && callback_args != NULL)
+    unpack_args(callback_args, &unpacked_args, &n_args);
+  if(callback_kwargs == Py_None) callback_kwargs = NULL;
+  if(x0->nd != 1)
+    { //If x0 is not 1-dimensional then solve will fail and cause a segmentation fault.
+      logger("[ERROR] x0 must be a 1-dimensional array");
+      Py_XDECREF(x);
+      Py_XDECREF(mL);
+      Py_XDECREF(mU);
+      Py_XDECREF(lambda);
+      PyErr_SetString(PyExc_TypeError, "x0 passed to solve is not 1-dimensional.");
+      SAFE_FREE(unpacked_args);
+      return NULL;
+    }
+  
+  bigfield->callback_args = unpacked_args;
+  bigfield->n_callback_args = n_args;
+  bigfield->callback_kwargs = callback_kwargs;
+  if(nlp == NULL)
+    {SOLVE_CLEANUP_TYPE("nlp objective passed to solve is NULL\n Problem created?\n")}
+  if(bigfield->eval_h_python == NULL)
+    AddIpoptStrOption(nlp, "hessian_approximation", "limited-memory");
+  
+  // allocate space for the initial point and set the values
+  npy_intp *dim = ((PyArrayObject*) x0)->dimensions;
+  n = dim[0];
+  dX[0] = n;
+  
+  x = (PyArrayObject*) PyArray_SimpleNew(1, dX, PyArray_DOUBLE);
+  if(!x) {SOLVE_CLEANUP_MEMORY()}
+  newx0 = (Number*) malloc(sizeof(Number) * n);
+  if(!newx0) {SOLVE_CLEANUP_MEMORY()}
+  double *xdata = (double*)x0->data;
+  for(i=0; i<n; i++)
+    newx0[i] = xdata[i];
+  
+  // Allocate multiplier arrays
+  if(mL == NULL)
+    mL_data = malloc(n * sizeof(double));
+  else if(mL->dimensions[0] != n)
+    {SOLVE_CLEANUP_TYPE("mult_x_L must be the same length as x0.\n");}
+  else mL_data = (double*)mL->data;
+  if(mU == NULL)
+    mU_data = malloc(n * sizeof(double));
+  else if(mU->dimensions[0] != n)
+    {SOLVE_CLEANUP_TYPE("mult_x_U must be the same length as x0.\n");}
+  else mU_data = (double*)mU->data;
+  if(lambda == NULL)
+    lambda_data = malloc(m * sizeof(double));
+  else if(lambda->dimensions[0] != m)
+    {SOLVE_CLEANUP_TYPE("mult_g must be the same length as the constraints.\n");}
+  else lambda_data = (double*)lambda->data;
+  
+  // For status code, see IpReturnCodes_inc.h in Ipopt
+  status = IpoptSolve(nlp, newx0, NULL, &obj,
+		      lambda_data, mL_data, mU_data,
+		      (UserDataPtr)bigfield);
+  if(lambda == NULL && lambda_data != NULL) free(lambda_data);
+  if(mU == NULL && mU_data != NULL) free(mU_data);
+  if(mL == NULL && mL_data != NULL) free(mL_data);
+  double *return_x_data = (double*)x->data;
+  for(i=0; i<n; i++)
+    return_x_data[i] = newx0[i];
+  
+  retval = Py_BuildValue("Odi", PyArray_Return(x), obj, status);
+  // clean up and return
 
-	// Return values
-	problem *temp = (problem *) self;
-
-	IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-	DispatchData *bigfield = (DispatchData *) (temp->data);
-	int m = temp->m_constraints;
-
-	npy_intp dX[1];
-
-	PyArrayObject *x = NULL, *mL = NULL, *mU = NULL, *lambda = NULL;
-	double *mL_data=NULL, *mU_data=NULL, *lambda_data=NULL;
-	PyObject *callback_args = NULL, *callback_kwargs = NULL;
-	Number obj;		/* objective value */
-
-	PyObject *retval = NULL;
-	PyArrayObject *x0 = NULL;
-
-	Number *newx0 = NULL;
-
-	unsigned int n_args = 0;
-	PyObject **unpacked_args = NULL;
-	if (!PyArg_ParseTupleAndKeywords(args, keywords, "O!|OO$O!O!O!",
-					 (char*[]){"x0", "callback_args", "callback_kwargs", "mult_g", "mult_x_L", "mult_x_U", NULL},
-					 &PyArray_Type, &x0,
-					 &callback_args,
-					 &callback_kwargs,
-					 &PyArray_Type, &lambda, // mult_g 
-					 &PyArray_Type, &mL, // mult_x_L
-					 &PyArray_Type, &mU) // mult_x_Y
-	  || !check_type((PyObject*)x0, &_PyArray_Check, "x0", "numpy.ndarray")
-	  || !check_type_optional(callback_kwargs, &check_kwargs, "callback_kwargs", "dict")
-	  || !check_type_optional(callback_args, &check_args, "callback_args", "tuple"))
-	  {
-	    SOLVE_CLEANUP_NULL();
-	  }
-	if(callback_args != Py_None && callback_args != NULL)
-	  unpack_args(callback_args, &unpacked_args, &n_args);
-	if(callback_kwargs == Py_None) callback_kwargs = NULL;
-	if (x0->nd != 1){ //If x0 is not 1-dimensional then solve will fail and cause a segmentation fault.
-		logger("[ERROR] x0 must be a 1-dimensional array");
-		Py_XDECREF(x);
-		Py_XDECREF(mL);
-		Py_XDECREF(mU);
-		Py_XDECREF(lambda);
-		PyErr_SetString(PyExc_TypeError,
-				"x0 passed to solve is not 1-dimensional.");
-		SAFE_FREE(unpacked_args);
-		return NULL;
-	}
-
-	bigfield->callback_args = unpacked_args;
-	bigfield->n_callback_args = n_args;
-	bigfield->callback_kwargs = callback_kwargs;
-	if (nlp == NULL) {
-	  SOLVE_CLEANUP_TYPE("nlp objective passed to solve is NULL\n Problem created?\n")
-	}
-	if (bigfield->eval_h_python == NULL) {
-		AddIpoptStrOption(nlp, "hessian_approximation", "limited-memory");
-	}
-	// allocate space for the initial point and set the values
-	npy_intp *dim = ((PyArrayObject *) x0)->dimensions;
-	n = dim[0];
-	dX[0] = n;
-
-	x = (PyArrayObject *) PyArray_SimpleNew(1, dX, PyArray_DOUBLE);
-	if (!x) {
-	  SOLVE_CLEANUP_MEMORY()
-	}
-	newx0 = (Number *) malloc(sizeof(Number) * n);
-	if (!newx0) {
-	  SOLVE_CLEANUP_MEMORY()
-	}
-	double *xdata = (double *)x0->data;
-	for(i=0; i<n; i++)
-	  newx0[i] = xdata[i];
-
-	// Allocate multiplier arrays
-	if(mL == NULL)
-	  mL_data = malloc(n * sizeof(double));
-	else if(mL->dimensions[0] != n)
-	  {
-	    SOLVE_CLEANUP_TYPE("mult_x_L must be the same length as x0.\n");
-	  }
-	else mL_data = (double*)mL->data;
-	if(mU == NULL)
-	  mU_data = malloc(n * sizeof(double));
-	else if(mU->dimensions[0] != n)
-	  {
-	    SOLVE_CLEANUP_TYPE("mult_x_U must be the same length as x0.\n");
-	  }
-	else mU_data = (double*)mU->data;
-	if(lambda == NULL)
-	  lambda_data = malloc(m * sizeof(double));
-	else if(lambda->dimensions[0] != m)
-	  {
-	    SOLVE_CLEANUP_TYPE("mult_g must be the same length as the constraints.\n");
-	  }
-	else lambda_data = (double*)lambda->data;
-
-	// For status code, see IpReturnCodes_inc.h in Ipopt
-	status = IpoptSolve(nlp, newx0, NULL, &obj,
-			    lambda_data, mL_data, mU_data,
-			    (UserDataPtr)bigfield);
-	if(lambda == NULL && lambda_data != NULL) free(lambda_data);
-	if(mU == NULL && mU_data != NULL) free(mU_data);
-	if(mL == NULL && mL_data != NULL) free(mL_data);
-	double *return_x_data = (double*)x->data;
-	for (i=0; i<n; i++)
-	  return_x_data[i] = newx0[i];
-	
-	retval = Py_BuildValue("Odi", PyArray_Return(x), obj, status);
-	// clean up and return
-
-	Py_XDECREF(x);
-
-	SAFE_FREE(newx0);
-	SAFE_FREE(unpacked_args);
-	return retval;
+  Py_XDECREF(x);
+  SAFE_FREE(newx0);
+  SAFE_FREE(unpacked_args);
+  return retval;
 }
 static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args)
 {
@@ -805,101 +771,82 @@ static Bool check_kwargs(const PyObject *kwargs)
 Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name)
 {
   if(obj == NULL || checker(obj))
-    return 1;
+    return TRUE;
   PyErr_Format(PyExc_TypeError, "Wrong type for %s. Required: %s", obj_name, type_name);
-  return 0;
+  return FALSE;
 }
 Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name)
 {
   if(obj != NULL && check_type_optional(obj, checker, obj_name, type_name))
-    return 1;
+    return TRUE;
   PyErr_Format(PyExc_TypeError, "Error while parsing %s.", obj_name);
-  return 0;
+  return FALSE;
 }
-PyObject *close_model(PyObject * self, PyObject * args)
+PyObject *close_model(PyObject *self, PyObject *args)
 {
-	problem *obj = (problem *) self;
-	DispatchData *dp = obj->data;
-
-  /* Ungrab the callback functions because we do not need them anymore. */
-	Py_XDECREF(dp->eval_f_python);
-	Py_XDECREF(dp->eval_grad_f_python);
-	Py_XDECREF(dp->eval_g_python);
-	Py_XDECREF(dp->eval_jac_g_python);
-	Py_XDECREF(dp->eval_h_python);
-	Py_XDECREF(dp->apply_new_python);
-	sparsity_indices_free(&dp->sparsity_indices_jac_g);
-	sparsity_indices_free(&dp->sparsity_indices_hess);
-
-	free(dp);
-	obj->data = NULL;
-
-	FreeIpoptProblem(obj->nlp);
-	obj->nlp = NULL;
-	Py_INCREF(Py_True);
-	return Py_True;
+  problem *obj = (problem*) self;
+  DispatchData *dp = obj->data;
+  
+  //Ungrab the callback functions because we do not need them anymore.
+  Py_XDECREF(dp->eval_f_python);
+  Py_XDECREF(dp->eval_grad_f_python);
+  Py_XDECREF(dp->eval_g_python);
+  Py_XDECREF(dp->eval_jac_g_python);
+  Py_XDECREF(dp->eval_h_python);
+  Py_XDECREF(dp->apply_new_python);
+  sparsity_indices_free(&dp->sparsity_indices_jac_g);
+  sparsity_indices_free(&dp->sparsity_indices_hess);
+  
+  free(dp);
+  obj->data = NULL;
+  
+  FreeIpoptProblem(obj->nlp);
+  obj->nlp = NULL;
+  Py_INCREF(Py_True);
+  return Py_True;
 }
 
-/* static char PYTEST[] = "TestCreate\n"; */
-
-/* static PyObject *test(PyObject *self, PyObject *args) */
-/* { */
-/* IpoptProblem thisnlp = NULL; */
-/* problem *object = NULL; */
-/* object = PyObject_NEW(problem , &IpoptProblemType); */
-/* if (object != NULL) */
-/* object->nlp = thisnlp; */
-/* /\*        problem *object = problem_new(thisnlp); *\/ */
-/* return (PyObject *)object; */
-/* } */
-
-/* Begin Python Module code section */
-static PyMethodDef ipoptMethods[] = {
-    /* { "solve", solve, METH_VARARGS, PYIPOPT_SOLVE_DOC}, */
-    {"create", create, METH_VARARGS, PYIPOPT_CREATE_DOC},
-    /* { "close",  close_model, METH_VARARGS, PYIPOPT_CLOSE_DOC},  */
-    /* { "test",   test,                 METH_VARARGS, PYTEST}, */
-    {"set_loglevel", set_loglevel, METH_VARARGS, PYIPOPT_LOG_DOC},
-    {NULL, NULL}
-};
+// Begin Python Module code section
+static PyMethodDef ipoptMethods[] =
+  {
+   {"create", create, METH_VARARGS, PYIPOPT_CREATE_DOC},
+   {"set_loglevel", set_loglevel, METH_VARARGS, PYIPOPT_LOG_DOC},
+   {NULL, NULL}
+  };
 
 #if PY_MAJOR_VERSION >= 3
-  #define MOD_ERROR_VAL NULL
-  #define MOD_SUCCESS_VAL(val) val
-  #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
-  #define MOD_DEF(ob, name, doc, methods) \
-          static struct PyModuleDef moduledef = { \
-            PyModuleDef_HEAD_INIT, name, doc, -1, methods, }; \
-          ob = PyModule_Create(&moduledef);
+#define MOD_ERROR_VAL NULL
+#define MOD_SUCCESS_VAL(val) val
+#define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
+#define MOD_DEF(ob, name, doc, methods)					\
+  static struct PyModuleDef moduledef =					\
+    { PyModuleDef_HEAD_INIT, name, doc, -1, methods, };			\
+  ob = PyModule_Create(&moduledef);
 #else
-  #define MOD_ERROR_VAL
-  #define MOD_SUCCESS_VAL(val)
-  #define MOD_INIT(name) void init##name(void)
-  #define MOD_DEF(ob, name, doc, methods) \
-          ob = Py_InitModule3(name, methods, doc);
+#define MOD_ERROR_VAL
+#define MOD_SUCCESS_VAL(val)
+#define MOD_INIT(name) void init##name(void)
+#define MOD_DEF(ob, name, doc, methods)			\
+  ob = Py_InitModule3(name, methods, doc);
 #endif
 
 MOD_INIT(pyipoptcore)
 {
-    PyObject * m;
-    /* Finish initialization of the problem type */
-    if (PyType_Ready(&IpoptProblemType) < 0) {
-        return MOD_ERROR_VAL;
-    }
-
-    MOD_DEF(m, "pyipoptcore", "A hook between Ipopt and Python", ipoptMethods)
-
-    if (m == NULL)
-        return MOD_ERROR_VAL;
-
-    /* Initialize numpy. */
-    /* A segfault will occur if I use numarray without this.. */
-    import_array();
-    if (PyErr_Occurred()) {
-        Py_FatalError("Unable to initialize module pyipoptcore");
-    }
-
-    return MOD_SUCCESS_VAL(m);
+  PyObject * m;
+  // Finish initialization of the problem type
+  if(PyType_Ready(&IpoptProblemType) < 0) 
+    return MOD_ERROR_VAL;
+  
+  MOD_DEF(m, "pyipoptcore", "A hook between Ipopt and Python", ipoptMethods);
+    
+  if(m == NULL)
+    return MOD_ERROR_VAL;
+  
+  // Initialize numpy.
+  // A segfault will occur if I use numarray without this..
+  import_array();
+  if(PyErr_Occurred())
+    Py_FatalError("Unable to initialize module pyipoptcore");
+  
+  return MOD_SUCCESS_VAL(m);
 }
-
-/* End Python Module code section */

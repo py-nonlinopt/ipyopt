@@ -38,13 +38,14 @@
 
 void logger(const char *fmt, ...)
 {
-	if (user_log_level == VERBOSE) {
-		va_list ap;
-		va_start(ap, fmt);
-		PySys_WriteStdout(fmt, ap);
-		va_end(ap);
-		PySys_WriteStdout("\n");
-	}
+  if(user_log_level == VERBOSE)
+    {
+      va_list ap;
+      va_start(ap, fmt);
+      PySys_WriteStdout(fmt, ap);
+      va_end(ap);
+      PySys_WriteStdout("\n");
+    }
 }
 
 PyObject *build_arg_tuple(PyObject ***arg_lists, unsigned int *n_args)
@@ -70,7 +71,7 @@ PyObject *build_arg_tuple(PyObject ***arg_lists, unsigned int *n_args)
   return tuple;
 }
 
-Bool eval_intermediate_callback(Index alg_mod,	/* 0 is regular, 1 is resto */
+Bool eval_intermediate_callback(Index alg_mod,	// 0 is regular, 1 is resto
 				Index iter_count, Number obj_value,
 				Number inf_pr, Number inf_du,
 				Number mu, Number d_norm,
@@ -78,440 +79,389 @@ Bool eval_intermediate_callback(Index alg_mod,	/* 0 is regular, 1 is resto */
 				Number alpha_du, Number alpha_pr,
 				Index ls_trials, UserDataPtr data)
 {
-	//logger("[Callback:E]intermediate_callback");
-
-	DispatchData *myowndata = (DispatchData *) data;
-	PyObject** callback_args = myowndata->callback_args;
-	PyObject* callback_kwargs = myowndata->callback_kwargs;
-
-	Bool result_as_bool;
-
-	PyObject *arglist = NULL;
-	PyObject *args[] = {
-	  Py_BuildValue("i", alg_mod),
-	  Py_BuildValue("i", iter_count),
-	  Py_BuildValue("d", obj_value),
-	  Py_BuildValue("d", inf_pr),
-	  Py_BuildValue("d", inf_du),
-	  Py_BuildValue("d", mu),
-	  Py_BuildValue("d", d_norm),
-	  Py_BuildValue("d", regularization_size),
-	  Py_BuildValue("d", alpha_du),
-	  Py_BuildValue("d", alpha_pr),
-	  Py_BuildValue("i", ls_trials)
-	};
-	arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
-				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
-
-	PyObject *result =
-	    PyObject_Call(myowndata->eval_intermediate_callback_python,
-			  arglist, callback_kwargs);
-
-	if (!result)
-		PyErr_Print();
-
-	result_as_bool = (Bool) PyLong_AsLong(result);
-
-	Py_DECREF(result);
-	Py_CLEAR(arglist);
-	//logger("[Callback:R] intermediate_callback");
-	return result_as_bool;
+  DispatchData *myowndata = (DispatchData*) data;
+  PyObject** callback_args = myowndata->callback_args;
+  PyObject* callback_kwargs = myowndata->callback_kwargs;
+  
+  Bool result_as_bool;
+  
+  PyObject *arglist = NULL;
+  PyObject *args[] = {
+		      Py_BuildValue("i", alg_mod),
+		      Py_BuildValue("i", iter_count),
+		      Py_BuildValue("d", obj_value),
+		      Py_BuildValue("d", inf_pr),
+		      Py_BuildValue("d", inf_du),
+		      Py_BuildValue("d", mu),
+		      Py_BuildValue("d", d_norm),
+		      Py_BuildValue("d", regularization_size),
+		      Py_BuildValue("d", alpha_du),
+		      Py_BuildValue("d", alpha_pr),
+		      Py_BuildValue("i", ls_trials)
+  };
+  arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+			    (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
+  
+  PyObject *result = PyObject_Call(myowndata->eval_intermediate_callback_python, arglist, callback_kwargs);
+  
+  if(!result)
+    PyErr_Print();
+  
+  result_as_bool = (Bool) PyLong_AsLong(result);
+  
+  Py_DECREF(result);
+  Py_CLEAR(arglist);
+  return result_as_bool;
 }
 
-Bool
-eval_f(Index n, Number * x, Bool new_x, Number * obj_value, UserDataPtr data)
+Bool eval_f(Index n, Number *x, Bool new_x, Number *obj_value, UserDataPtr data)
 {
-	//logger("[Callback:E] eval_f");
-
-	npy_intp dims[1];
-	dims[0] = n;
-
-	DispatchData *myowndata = (DispatchData *) data;
-	PyObject **callback_args = myowndata->callback_args;
-	PyObject *callback_kwargs = myowndata->callback_kwargs;
-
-	// import_array ();
-
-	import_array1(FALSE);
-	PyObject *arrayx =
-	    PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char *)x);
-	if (!arrayx)
-		return FALSE;
-
-	if (new_x && myowndata->apply_new_python) {
-		/* Call the python function to applynew */
-		PyObject *arg1;
-		arg1 = Py_BuildValue("(O)", arrayx);
-		PyObject *tempresult = PyObject_CallObject(
-        myowndata->apply_new_python, arg1);
-		if (tempresult == NULL) {
-			logger("[Error] Python function apply_new returns NULL");
-			PyErr_Print();
-			Py_DECREF(arg1);
-			return FALSE;
-		}
-		Py_DECREF(arg1);
-		Py_DECREF(tempresult);
+  npy_intp dims[1];
+  dims[0] = n;
+  
+  DispatchData *myowndata = (DispatchData*) data;
+  PyObject **callback_args = myowndata->callback_args;
+  PyObject *callback_kwargs = myowndata->callback_kwargs;
+  
+  import_array1(FALSE);
+  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+  if(!arrayx) return FALSE;
+  
+  if(new_x && myowndata->apply_new_python)
+    {
+      // Call the python function to applynew
+      PyObject *arg1;
+      arg1 = Py_BuildValue("(O)", arrayx);
+      PyObject *tempresult = PyObject_CallObject(myowndata->apply_new_python, arg1);
+      if(tempresult == NULL)
+	{
+	  logger("[Error] Python function apply_new returns NULL");
+	  PyErr_Print();
+	  Py_DECREF(arg1);
+	  return FALSE;
 	}
-	PyObject* args[] = {arrayx};
-	PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
-				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
-
-	PyObject *result = PyObject_Call(myowndata->eval_f_python, arglist, callback_kwargs);
-
-	if (result == NULL) {
-    logger("[Error] Python function eval_f returns NULL");
-		PyErr_Print();
-		Py_DECREF(arrayx);
-		Py_CLEAR(arglist);
-		return FALSE;
-	}
-
-	*obj_value = PyFloat_AsDouble(result);
-
-  if (PyErr_Occurred()) {
-    logger("[Error] Python function eval_f returns non-PyFloat");
-		PyErr_Print();
-		Py_DECREF(result);
-		Py_DECREF(arrayx);
-		Py_CLEAR(arglist);
-		return FALSE;
-  }
-
-	Py_DECREF(result);
-	Py_DECREF(arrayx);
-	Py_CLEAR(arglist);
-	//logger("[Callback:R] eval_f");
-	return TRUE;
-}
-
-Bool
-eval_grad_f(Index n, Number * x, Bool new_x, Number * grad_f, UserDataPtr data)
-{
-	//logger("[Callback:E] eval_grad_f");
-
-	DispatchData *myowndata = (DispatchData *) data;
-	PyObject** callback_args = myowndata->callback_args;
-	PyObject* callback_kwargs = myowndata->callback_kwargs;
-
-	if (myowndata->eval_grad_f_python == NULL)
-		PyErr_Print();
-
-	/* int dims[1]; */
-	npy_intp dims[1];
-	dims[0] = n;
-	// import_array ();
-
-	import_array1(FALSE);
-
-	/*
-	 * PyObject *arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE
-	 * , (char*) x);
-	 */
-	PyObject *arrayx =
-	    PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char *)x);
-	if (!arrayx)
-		return FALSE;
-
-	if (new_x && myowndata->apply_new_python) {
-		/* Call the python function to applynew */
-		PyObject *arg1 = Py_BuildValue("(O)", arrayx);
-		PyObject *tempresult = PyObject_CallObject(
-        myowndata->apply_new_python, arg1);
-		if (tempresult == NULL) {
-			logger("[Error] Python function apply_new returns NULL");
+      Py_DECREF(arg1);
+      Py_DECREF(tempresult);
+    }
+  PyObject* args[] = {arrayx};
+  PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				      (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
+  
+  PyObject *result = PyObject_Call(myowndata->eval_f_python, arglist, callback_kwargs);
+  
+  if(result == NULL)
+    {
+      logger("[Error] Python function eval_f returns NULL");
       PyErr_Print();
-			Py_DECREF(arg1);
-			return FALSE;
-		}
-		Py_DECREF(arg1);
-		Py_DECREF(tempresult);
+      Py_DECREF(arrayx);
+      Py_CLEAR(arglist);
+      return FALSE;
+    }
+  
+  *obj_value = PyFloat_AsDouble(result);
+  
+  if(PyErr_Occurred())
+    {
+      logger("[Error] Python function eval_f returns non-PyFloat");
+      PyErr_Print();
+      Py_DECREF(result);
+      Py_DECREF(arrayx);
+      Py_CLEAR(arglist);
+      return FALSE;
+    }
+  
+  Py_DECREF(result);
+  Py_DECREF(arrayx);
+  Py_CLEAR(arglist);
+  return TRUE;
+}
+
+Bool eval_grad_f(Index n, Number *x, Bool new_x, Number *grad_f, UserDataPtr data)
+{
+  DispatchData *myowndata = (DispatchData*) data;
+  PyObject** callback_args = myowndata->callback_args;
+  PyObject* callback_kwargs = myowndata->callback_kwargs;
+  
+  if(myowndata->eval_grad_f_python == NULL)
+    PyErr_Print();
+
+  npy_intp dims[1];
+  dims[0] = n;
+
+  import_array1(FALSE);
+
+  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+  if(!arrayx) return FALSE;
+
+  if(new_x && myowndata->apply_new_python)
+    {
+      // Call the python function to applynew
+      PyObject *arg1 = Py_BuildValue("(O)", arrayx);
+      PyObject *tempresult = PyObject_CallObject(myowndata->apply_new_python, arg1);
+      if(tempresult == NULL)
+	{
+	  logger("[Error] Python function apply_new returns NULL");
+	  PyErr_Print();
+	  Py_DECREF(arg1);
+	  return FALSE;
 	}
+      Py_DECREF(arg1);
+      Py_DECREF(tempresult);
+    }
 
-	PyObject *args[] = {arrayx};
-	PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
-				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
+  PyObject *args[] = {arrayx};
+  PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				      (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
+  
+  PyArrayObject *result = (PyArrayObject*) PyObject_Call(myowndata->eval_grad_f_python, arglist, callback_kwargs);
+  
+  if(result == NULL)
+    {
+      logger("[Error] Python function eval_grad_f returns NULL");
+      PyErr_Print();
+      return FALSE;
+    }
+  
+  if(!PyArray_Check(result))
+    {
+      logger("[Error] Python function eval_grad_f returns non-PyArray");
+      Py_DECREF(result);
+      return FALSE;
+    }
 
-	PyArrayObject *result = (PyArrayObject *) PyObject_Call(
-								myowndata->eval_grad_f_python, arglist, callback_kwargs);
+  double *tempdata = (double*)result->data;
+  int i;
+  for(i=0; i<n; i++) grad_f[i] = tempdata[i];
+  
+  Py_DECREF(result);
+  Py_CLEAR(arrayx);
+  Py_CLEAR(arglist);
+  return TRUE;
+}
 
-	if (result == NULL) {
-	  logger("[Error] Python function eval_grad_f returns NULL");
+Bool eval_g(Index n, Number *x, Bool new_x, Index m, Number *g, UserDataPtr data)
+{
+  DispatchData *myowndata = (DispatchData*) data;
+  PyObject** callback_args = myowndata->callback_args;
+  PyObject* callback_kwargs = myowndata->callback_kwargs;
+  
+  if(myowndata->eval_g_python == NULL) PyErr_Print();
+  npy_intp dims[1];
+  int i;
+  double *tempdata;
+
+  dims[0] = n;
+  import_array1(FALSE);
+  
+  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+  if(!arrayx) return FALSE;
+  
+  if(new_x && myowndata->apply_new_python)
+    {
+      // Call the python function to applynew
+      PyObject *arg1 = Py_BuildValue("(O)", arrayx);
+      PyObject *tempresult = PyObject_CallObject(
+						 myowndata->apply_new_python, arg1);
+      if(tempresult == NULL)
+	{
+	  logger("[Error] Python function apply_new returns NULL");
+	  PyErr_Print();
+	  Py_DECREF(arg1);
+	  return FALSE;
+	}
+      Py_DECREF(arg1);
+      Py_DECREF(tempresult);
+    }
+
+  PyObject *args[] = {arrayx};
+  PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+				      (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
+  
+  PyArrayObject *result = (PyArrayObject*) PyObject_Call(myowndata->eval_g_python,
+							  arglist, callback_kwargs);
+
+  if(result == NULL)
+    {
+      logger("[Error] Python function eval_g returns NULL");
+      PyErr_Print();
+      return FALSE;
+    }
+  
+  if(!PyArray_Check(result))
+    {
+      logger("[Error] Python function eval_g returns non-PyArray");
+      Py_DECREF(result);
+      return FALSE;
+    }
+
+  tempdata = (double*)result->data;
+  for(i=0; i<m; i++) g[i] = tempdata[i];
+
+  Py_DECREF(result);
+  Py_CLEAR(arrayx);
+  Py_CLEAR(arglist);
+  return TRUE;
+}
+
+Bool eval_jac_g(Index n, Number *x, Bool new_x,
+		Index m, Index nele_jac,
+		Index *iRow, Index *jCol, Number *values, UserDataPtr data)
+{
+  DispatchData *myowndata = (DispatchData*) data;
+  PyObject** callback_args = myowndata->callback_args;
+  PyObject* callback_kwargs = myowndata->callback_kwargs;
+  
+  unsigned int i;
+
+  npy_intp dims[1];
+  dims[0] = n;
+
+  double *tempdata;
+
+  if(myowndata->eval_grad_f_python == NULL) PyErr_Print();
+
+  if(values == NULL)
+    for(i=0; i<myowndata->sparsity_indices_jac_g.n; i++)
+      {
+	iRow[i] = myowndata->sparsity_indices_jac_g.row[i];
+	jCol[i] = myowndata->sparsity_indices_jac_g.col[i];
+      }
+  else
+    {
+      PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+      if(!arrayx) return FALSE;
+      if(new_x && myowndata->apply_new_python)
+	{
+	  // Call the python function to applynew
+	  PyObject *arg1 = Py_BuildValue("(O)", arrayx);
+	  PyObject *tempresult = PyObject_CallObject(myowndata->apply_new_python, arg1);
+	  if(tempresult == NULL)
+	    {
+	      logger("[Error] Python function apply_new returns NULL");
+	      Py_DECREF(arg1);
+	      return FALSE;
+	    }
+	  Py_DECREF(arg1);
+	  Py_DECREF(tempresult);
+	}
+      PyObject *args[] = {arrayx};
+      PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
+					  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
+
+      PyArrayObject *result = (PyArrayObject*) PyObject_Call(myowndata->eval_jac_g_python, arglist, callback_kwargs);
+
+      if(result == NULL)
+	{
+	  logger("[Error] Python function eval_jac_g returns NULL");
 	  PyErr_Print();
 	  return FALSE;
 	}
-  
-	if (!PyArray_Check(result)) {
-	  logger("[Error] Python function eval_grad_f returns non-PyArray");
+
+      if(!PyArray_Check(result))
+	{
+	  logger("[Error] Python function eval_jac_g returns non-PyArray");
 	  Py_DECREF(result);
 	  return FALSE;
 	}
 
-	double *tempdata = (double *)result->data;
-	int i;
-	for (i = 0; i < n; i++)
-		grad_f[i] = tempdata[i];
-
-	Py_DECREF(result);
-	Py_CLEAR(arrayx);
-	Py_CLEAR(arglist);
-	//logger("[Callback:R] eval_grad_f");
-	return TRUE;
+      /*
+       * Code is buggy here. We assume that result is a double
+       * array
+       */
+      assert(result->descr->type == 'd');
+      tempdata = (double*)result->data;
+      
+      for(i=0; i<(unsigned int)nele_jac; i++)
+	values[i] = tempdata[i];
+      
+      Py_DECREF(result);
+      Py_CLEAR(arrayx);
+      Py_CLEAR(arglist);
+    }
+  return TRUE;
 }
 
-Bool
-eval_g(Index n, Number * x, Bool new_x, Index m, Number * g, UserDataPtr data)
+Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
+	    Index m, Number *lambda, Bool new_lambda,
+	    Index nele_hess, Index *iRow, Index *jCol,
+	    Number *values, UserDataPtr data)
 {
-
-	//logger("[Callback:E] eval_g");
-
-	DispatchData *myowndata = (DispatchData *) data;
-	PyObject** callback_args = myowndata->callback_args;
-	PyObject* callback_kwargs = myowndata->callback_kwargs;
-
-	if (myowndata->eval_g_python == NULL)
-		PyErr_Print();
-	/* int dims[1]; */
-	npy_intp dims[1];
-	int i;
-	double *tempdata;
-
-	dims[0] = n;
-	// import_array ();
-
-	import_array1(FALSE);
-
-	/*
-	 * PyObject *arrayx = PyArray_FromDimsAndData(1, dims, PyArray_DOUBLE
-	 * , (char*) x);
-	 */
-	PyObject *arrayx =
-	    PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char *)x);
-	if (!arrayx)
-		return FALSE;
-
-	if (new_x && myowndata->apply_new_python) {
-		/* Call the python function to applynew */
-		PyObject *arg1 = Py_BuildValue("(O)", arrayx);
-		PyObject *tempresult = PyObject_CallObject(
-        myowndata->apply_new_python, arg1);
-		if (tempresult == NULL) {
-			logger("[Error] Python function apply_new returns NULL");
-      PyErr_Print();
-			Py_DECREF(arg1);
-			return FALSE;
-		}
-		Py_DECREF(arg1);
-		Py_DECREF(tempresult);
-	}
-
-	PyObject *args[] = {arrayx};
-	PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
-				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
-
-	PyArrayObject *result = (PyArrayObject *) PyObject_Call(myowndata->eval_g_python,
-								arglist, callback_kwargs);
-
-  if (result == NULL) {
-    logger("[Error] Python function eval_g returns NULL");
-		PyErr_Print();
-    return FALSE;
-  }
+  DispatchData *myowndata = (DispatchData*) data;
+  PyObject** callback_args = myowndata->callback_args;
+  PyObject* callback_kwargs = myowndata->callback_kwargs;
   
-  if (!PyArray_Check(result)) {
-    logger("[Error] Python function eval_g returns non-PyArray");
-    Py_DECREF(result);
-    return FALSE;
-  }
-
-	tempdata = (double *)result->data;
-	for (i = 0; i < m; i++) {
-		g[i] = tempdata[i];
-	}
-
-	Py_DECREF(result);
-	Py_CLEAR(arrayx);
-	Py_CLEAR(arglist);
-	//logger("[Callback:R] eval_g");
-	return TRUE;
-}
-
-Bool
-eval_jac_g(Index n, Number * x, Bool new_x,
-	   Index m, Index nele_jac,
-	   Index * iRow, Index * jCol, Number * values, UserDataPtr data)
-{
-
-	//logger("[Callback:E] eval_jac_g");
-
-	DispatchData *myowndata = (DispatchData *) data;
-	PyObject** callback_args = myowndata->callback_args;
-	PyObject* callback_kwargs = myowndata->callback_kwargs;
-
-	unsigned int i;
-
-	/* int dims[1]; */
-	npy_intp dims[1];
-	dims[0] = n;
-
-	double *tempdata;
-
-	if (myowndata->eval_grad_f_python == NULL)	/* Why??? */
-		PyErr_Print();
-
-	if (values == NULL)
-	  for(i=0; i<myowndata->sparsity_indices_jac_g.n; i++) {
-	    iRow[i] = myowndata->sparsity_indices_jac_g.row[i];
-	    jCol[i] = myowndata->sparsity_indices_jac_g.col[i];
-	  } else {
-		PyObject *arrayx =
-		    PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE,
-					      (char *)x);
-
-		if (!arrayx)
-			return FALSE;
-
-		if (new_x && myowndata->apply_new_python) {
-			/* Call the python function to applynew */
-			PyObject *arg1 = Py_BuildValue("(O)", arrayx);
-			PyObject *tempresult =
-			    PyObject_CallObject(myowndata->apply_new_python,
-						arg1);
-			if (tempresult == NULL) {
-				logger("[Error] Python function apply_new returns NULL");
-				Py_DECREF(arg1);
-				return FALSE;
-			}
-			Py_DECREF(arg1);
-			Py_DECREF(tempresult);
-		}
-		PyObject *args[] = {arrayx};
-		PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
-				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
-
-		PyArrayObject *result = (PyArrayObject *) PyObject_Call(
-									myowndata->eval_jac_g_python, arglist, callback_kwargs);
-
-		if (result == NULL) {
-      logger("[Error] Python function eval_jac_g returns NULL");
-			PyErr_Print();
+  unsigned int i;
+  npy_intp dims[1];
+  npy_intp dims2[1];
+  
+  if(myowndata->eval_h_python == NULL)
+    {
+      logger("[Error] There is no eval_h assigned");
       return FALSE;
     }
+  PyObject *arglist;
+  if(values == NULL)
+    for(i=0; i<myowndata->sparsity_indices_hess.n; i++)
+      {
+	iRow[i] = myowndata->sparsity_indices_hess.row[i];
+	jCol[i] = myowndata->sparsity_indices_hess.col[i];
+      }
+  else
+    {
+      PyObject *objfactor = Py_BuildValue("d", obj_factor);
+      
+      dims[0] = n;
+      PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+      if(!arrayx) return FALSE;
 
-    if (!PyArray_Check(result)) {
-      logger("[Error] Python function eval_jac_g returns non-PyArray");
-      Py_DECREF(result);
-      return FALSE;
-    }
-
-		/*
-		 * Code is buggy here. We assume that result is a double
-		 * array
-		 */
-		assert(result->descr->type == 'd');
-		tempdata = (double *)result->data;
-
-		for (i=0; i<(unsigned int)nele_jac; i++)
-		  values[i] = tempdata[i];
-
-		Py_DECREF(result);
-		Py_CLEAR(arrayx);
-		Py_CLEAR(arglist);
-		//logger("[Callback:R] eval_jac_g(2)");
-	}
-	//logger("[Callback:R] eval_jac_g");
-	return TRUE;
-}
-
-Bool
-eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
-       Index m, Number * lambda, Bool new_lambda,
-       Index nele_hess, Index * iRow, Index * jCol,
-       Number * values, UserDataPtr data)
-{
-	//logger("[Callback:E] eval_h");
-
-	DispatchData *myowndata = (DispatchData *) data;
-	PyObject** callback_args = myowndata->callback_args;
-	PyObject* callback_kwargs = myowndata->callback_kwargs;
-
-	unsigned int i;
-	npy_intp dims[1];
-	npy_intp dims2[1];
-
-	if (myowndata->eval_h_python == NULL) {
-		logger("[Error] There is no eval_h assigned");
-		return FALSE;
-	}
-	PyObject *arglist;
-	if (values == NULL)
-	  for(i=0; i<myowndata->sparsity_indices_hess.n; i++)
+      if(new_x && myowndata->apply_new_python)
+	{
+	  // Call the python function to applynew
+	  PyObject *arg1 = Py_BuildValue("(O)", arrayx);
+	  PyObject *tempresult = PyObject_CallObject(myowndata->apply_new_python, arg1);
+	  if(tempresult == NULL)
 	    {
-	      iRow[i] = myowndata->sparsity_indices_hess.row[i];
-	      jCol[i] = myowndata->sparsity_indices_hess.col[i];
+	      logger("[Error] Python function apply_new returns NULL");
+	      PyErr_Print();
+	      Py_DECREF(arg1);
+	      return FALSE;
 	    }
-	else {
-		//logger("[Callback:R] eval_h (2a)");
-
-		PyObject *objfactor = Py_BuildValue("d", obj_factor);
-
-		dims[0] = n;
-		PyObject *arrayx =
-		    PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE,
-					      (char *)x);
-		if (!arrayx)
-			return FALSE;
-
-		if (new_x && myowndata->apply_new_python) {
-			/* Call the python function to applynew  */
-			PyObject *arg1 = Py_BuildValue("(O)", arrayx);
-			PyObject *tempresult = PyObject_CallObject(
-          myowndata->apply_new_python, arg1);
-			if (tempresult == NULL) {
-				logger("[Error] Python function apply_new returns NULL");
-        PyErr_Print();
-				Py_DECREF(arg1);
-				return FALSE;
-			}
-			Py_DECREF(arg1);
-			Py_DECREF(tempresult);
-		}
-		dims2[0] = m;
-		PyObject *lagrangex = PyArray_SimpleNewFromData(
-        1, dims2, PyArray_DOUBLE, (char *)lambda);
-		if (!lagrangex)
-			return FALSE;
-
-		PyObject *c_arg_list[] = {
-		  arrayx, lagrangex, objfactor};
-
-		arglist = build_arg_tuple((PyObject**[]){c_arg_list, callback_args, NULL},
-				  (unsigned int[]){sizeof(c_arg_list)/sizeof(PyObject*), myowndata->n_callback_args});
-		PyArrayObject *result = (PyArrayObject *) PyObject_Call(
-									myowndata->eval_h_python, arglist, callback_kwargs);
-
-		if (result == NULL) {
-      logger("[Error] Python function eval_h returns NULL");
-			PyErr_Print();
-      return FALSE;
-    }
-
-    if (!PyArray_Check(result)) {
-      logger("[Error] Python function eval_h returns non-PyArray");
-      Py_DECREF(result);
-      return FALSE;
-    }
-
-		double *tempdata = (double *)result->data;
-		for (i=0; i<(unsigned int)nele_hess; i++)
-		  values[i] = tempdata[i];
-
-		Py_CLEAR(arrayx);
-		Py_CLEAR(lagrangex);
-		Py_CLEAR(objfactor);
-		Py_DECREF(result);
-		Py_CLEAR(arglist);
-		//logger("[Callback:R] eval_h (2b)");
+	  Py_DECREF(arg1);
+	  Py_DECREF(tempresult);
 	}
-	return TRUE;
+      dims2[0] = m;
+      PyObject *lagrangex = PyArray_SimpleNewFromData(1, dims2, PyArray_DOUBLE, (char*)lambda);
+      if(!lagrangex) return FALSE;
+      
+      PyObject *c_arg_list[] = {arrayx, lagrangex, objfactor};
+
+      arglist = build_arg_tuple((PyObject**[]){c_arg_list, callback_args, NULL},
+				(unsigned int[]){sizeof(c_arg_list)/sizeof(PyObject*), myowndata->n_callback_args});
+      PyArrayObject *result = (PyArrayObject*) PyObject_Call(myowndata->eval_h_python, arglist, callback_kwargs);
+      
+      if(result == NULL)
+	{
+	  logger("[Error] Python function eval_h returns NULL");
+	  PyErr_Print();
+	  return FALSE;
+	}
+      
+      if(!PyArray_Check(result))
+	{
+	  logger("[Error] Python function eval_h returns non-PyArray");
+	  Py_DECREF(result);
+	  return FALSE;
+	}
+
+      double *tempdata = (double*)result->data;
+      for(i=0; i<(unsigned int)nele_hess; i++)
+	values[i] = tempdata[i];
+      
+      Py_CLEAR(arrayx);
+      Py_CLEAR(lagrangex);
+      Py_CLEAR(objfactor);
+      Py_DECREF(result);
+      Py_CLEAR(arglist);
+    }
+  return TRUE;
 }
