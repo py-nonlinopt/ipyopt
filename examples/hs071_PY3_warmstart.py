@@ -43,35 +43,33 @@ def eval_f(x):
     return x[0] * x[3] * (x[0] + x[1] + x[2]) + x[2]
 
 
-def eval_grad_f(x):
+def eval_grad_f(x, out):
     assert len(x) == nvar
-    grad_f = array([
-        x[0] * x[3] + x[3] * (x[0] + x[1] + x[2]),
-        x[0] * x[3],
-        x[0] * x[3] + 1.0,
-        x[0] * (x[0] + x[1] + x[2])
-    ], float_)
-    return grad_f
+    out[0] = x[0] * x[3] + x[3] * (x[0] + x[1] + x[2])
+    out[1] = x[0] * x[3]
+    out[2] = x[0] * x[3] + 1.0
+    out[3] = x[0] * (x[0] + x[1] + x[2])
+    return out
 
 
-def eval_g(x):
+def eval_g(x, out):
     assert len(x) == nvar
-    return array([
-        x[0] * x[1] * x[2] * x[3],
-        x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + x[3]*x[3]
-    ], float_)
+    out[0] = x[0] * x[1] * x[2] * x[3]
+    out[1] = x[0] * x[0] + x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
+    return out
 
 
-def eval_jac_g(x):
+def eval_jac_g(x, out):
     assert len(x) == nvar
-    return array([x[1] * x[2] * x[3],
-                  x[0] * x[2] * x[3],
-                  x[0] * x[1] * x[3],
-                  x[0] * x[1] * x[2],
-                  2.0 * x[0],
-                  2.0 * x[1],
-                  2.0 * x[2],
-                  2.0 * x[3]])
+    out[()] = [x[1] * x[2] * x[3],
+               x[0] * x[2] * x[3],
+               x[0] * x[1] * x[3],
+               x[0] * x[1] * x[2],
+               2.0 * x[0],
+               2.0 * x[1],
+               2.0 * x[2],
+               2.0 * x[3]]
+    return out
 
 
 eval_jac_g.sparsity_indices = (array([0, 0, 0, 0, 1, 1, 1, 1]),

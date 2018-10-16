@@ -39,66 +39,63 @@ def eval_f(x):
     return x[0] * x[3] * (x[0] + x[1] + x[2]) + x[2]
 
 
-def eval_grad_f(x):
+def eval_grad_f(x, out):
     assert len(x) == nvar
-    grad_f = array([
-        x[0] * x[3] + x[3] * (x[0] + x[1] + x[2]),
-        x[0] * x[3],
-        x[0] * x[3] + 1.0,
-        x[0] * (x[0] + x[1] + x[2])
-    ], float_)
-    return grad_f
+    out[0] = x[0] * x[3] + x[3] * (x[0] + x[1] + x[2])
+    out[1] = x[0] * x[3]
+    out[2] = x[0] * x[3] + 1.0
+    out[3] = x[0] * (x[0] + x[1] + x[2])
+    return out
 
 
-def eval_g(x):
+def eval_g(x, out):
     assert len(x) == nvar
-    return array([
-        x[0] * x[1] * x[2] * x[3],
-        x[0] * x[0] + x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
-    ], float_)
+    out[0] = x[0] * x[1] * x[2] * x[3]
+    out[1] = x[0] * x[0] + x[1] * x[1] + x[2] * x[2] + x[3] * x[3]
+    return out
 
 
-def eval_jac_g(x):
+def eval_jac_g(x, out):
     assert len(x) == nvar
-    return array([x[1] * x[2] * x[3],
-                  x[0] * x[2] * x[3],
-                  x[0] * x[1] * x[3],
-                  x[0] * x[1] * x[2],
-                  2.0 * x[0],
-                  2.0 * x[1],
-                  2.0 * x[2],
-                  2.0 * x[3]])
+    out[()] = [x[1] * x[2] * x[3],
+               x[0] * x[2] * x[3],
+               x[0] * x[1] * x[3],
+               x[0] * x[1] * x[2],
+               2.0 * x[0],
+               2.0 * x[1],
+               2.0 * x[2],
+               2.0 * x[3]]
+    return out
 
 
 eval_jac_g.sparsity_indices = (array([0, 0, 0, 0, 1, 1, 1, 1]),
                                array([0, 1, 2, 3, 0, 1, 2, 3]))
 
 
-def eval_h(x, lagrange, obj_factor):
-    values = zeros((10), float_)
-    values[0] = obj_factor * (2 * x[3])
-    values[1] = obj_factor * (x[3])
-    values[2] = 0
-    values[3] = obj_factor * (x[3])
-    values[4] = 0
-    values[5] = 0
-    values[6] = obj_factor * (2 * x[0] + x[1] + x[2])
-    values[7] = obj_factor * (x[0])
-    values[8] = obj_factor * (x[0])
-    values[9] = 0
-    values[1] += lagrange[0] * (x[2] * x[3])
+def eval_h(x, lagrange, obj_factor, out):
+    out[0] = obj_factor * (2 * x[3])
+    out[1] = obj_factor * (x[3])
+    out[2] = 0
+    out[3] = obj_factor * (x[3])
+    out[4] = 0
+    out[5] = 0
+    out[6] = obj_factor * (2 * x[0] + x[1] + x[2])
+    out[7] = obj_factor * (x[0])
+    out[8] = obj_factor * (x[0])
+    out[9] = 0
+    out[1] += lagrange[0] * (x[2] * x[3])
 
-    values[3] += lagrange[0] * (x[1] * x[3])
-    values[4] += lagrange[0] * (x[0] * x[3])
+    out[3] += lagrange[0] * (x[1] * x[3])
+    out[4] += lagrange[0] * (x[0] * x[3])
 
-    values[6] += lagrange[0] * (x[1] * x[2])
-    values[7] += lagrange[0] * (x[0] * x[2])
-    values[8] += lagrange[0] * (x[0] * x[1])
-    values[0] += lagrange[1] * 2
-    values[2] += lagrange[1] * 2
-    values[5] += lagrange[1] * 2
-    values[9] += lagrange[1] * 2
-    return values
+    out[6] += lagrange[0] * (x[1] * x[2])
+    out[7] += lagrange[0] * (x[0] * x[2])
+    out[8] += lagrange[0] * (x[0] * x[1])
+    out[0] += lagrange[1] * 2
+    out[2] += lagrange[1] * 2
+    out[5] += lagrange[1] * 2
+    out[9] += lagrange[1] * 2
+    return out
 
 
 eval_h.sparsity_indices = (array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
