@@ -348,9 +348,7 @@ eval_jac_g(Index n, Number * x, Bool new_x,
 	PyObject** callback_args = myowndata->callback_args;
 	PyObject* callback_kwargs = myowndata->callback_kwargs;
 
-	int i;
-	long *rowd = NULL;
-	long *cold = NULL;
+	unsigned int i;
 
 	/* int dims[1]; */
 	npy_intp dims[1];
@@ -361,53 +359,11 @@ eval_jac_g(Index n, Number * x, Bool new_x,
 	if (myowndata->eval_grad_f_python == NULL)	/* Why??? */
 		PyErr_Print();
 
-	if (values == NULL) {
-		/* import_array (); */
-		import_array1(FALSE);
-
-		PyObject *arrayx =
-		    PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE,
-					      (char *)x);
-		if (!arrayx)
-			return FALSE;
-
-		PyObject *args[] = {arrayx, Py_True};
-		PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
-				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
-
-		PyObject *result =
-		  PyObject_Call(myowndata->eval_jac_g_python, arglist, callback_kwargs);
-		if (!result) {
-
-			logger("[PyIPOPT] return from eval_jac_g is null\n");
-			/* TODO: need to deal with reference counting here */
-			return FALSE;
-		}
-		if (!PyTuple_Check(result)) {
-			PyErr_Print();
-		}
-		PyArrayObject *row =
-		    (PyArrayObject *) PyTuple_GetItem(result, 0);
-		PyArrayObject *col =
-		    (PyArrayObject *) PyTuple_GetItem(result, 1);
-
-		if (!row || !col || !PyArray_Check(row) || !PyArray_Check(col)) {
-			logger
-			    ("[Error] there are problems with row or col in eval_jac_g.\n");
-			PyErr_Print();
-		}
-		rowd = (long *)row->data;
-		cold = (long *)col->data;
-
-		for (i = 0; i < nele_jac; i++) {
-			iRow[i] = (Index) rowd[i];
-			jCol[i] = (Index) cold[i];
-		}
-		Py_CLEAR(arrayx);
-		Py_DECREF(result);
-		Py_CLEAR(arglist);
-		//logger("[Callback:R] eval_jac_g(1)");
-	} else {
+	if (values == NULL)
+	  for(i=0; i<myowndata->sparsity_indices_jac_g.n; i++) {
+	    iRow[i] = myowndata->sparsity_indices_jac_g.row[i];
+	    jCol[i] = myowndata->sparsity_indices_jac_g.col[i];
+	  } else {
 		PyObject *arrayx =
 		    PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE,
 					      (char *)x);
@@ -429,7 +385,7 @@ eval_jac_g(Index n, Number * x, Bool new_x,
 			Py_DECREF(arg1);
 			Py_DECREF(tempresult);
 		}
-		PyObject *args[] = {arrayx, Py_False};
+		PyObject *args[] = {arrayx};
 		PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
 				  (unsigned int[]){sizeof(args)/sizeof(PyObject*), myowndata->n_callback_args});
 
@@ -455,8 +411,8 @@ eval_jac_g(Index n, Number * x, Bool new_x,
 		assert(result->descr->type == 'd');
 		tempdata = (double *)result->data;
 
-		for (i = 0; i < nele_jac; i++)
-			values[i] = tempdata[i];
+		for (i=0; i<(unsigned int)nele_jac; i++)
+		  values[i] = tempdata[i];
 
 		Py_DECREF(result);
 		Py_CLEAR(arrayx);
@@ -479,7 +435,7 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
 	PyObject** callback_args = myowndata->callback_args;
 	PyObject* callback_kwargs = myowndata->callback_kwargs;
 
-	int i;
+	unsigned int i;
 	npy_intp dims[1];
 	npy_intp dims2[1];
 
@@ -488,76 +444,13 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
 		return FALSE;
 	}
 	PyObject *arglist;
-	if (values == NULL) {
-    //logger("[Callback:E] eval_h (1a)");
-		PyObject *objfactor = Py_BuildValue("d", obj_factor);
-
-		PyObject *c_arg_list[] = {
-		  Py_True, /* newx */
-		  Py_True, /* lagrange */
-		  objfactor,
-		  Py_True
-		};
-
-		arglist = build_arg_tuple((PyObject**[]){c_arg_list, callback_args, NULL},
-				  (unsigned int[]){sizeof(c_arg_list)/sizeof(PyObject*), myowndata->n_callback_args});
-
-    if (arglist == NULL) {
-      logger("[Error] failed to build arglist for eval_h");
-			PyErr_Print();
-      return FALSE;
-    } else {
-      logger("[Logspam] built arglist for eval_h");
-    }
-
-    PyObject *result = PyObject_Call(myowndata->eval_h_python, arglist, callback_kwargs);
-
-    if (result == NULL) {
-      logger("[Error] Python function eval_h returns NULL");
-			PyErr_Print();
-      return FALSE;
-    } else {
-      logger("[Logspam] Python function eval_h returns non-NULL");
-    }
-
-    int result_size = PyTuple_Size(result);
-
-    if (result_size == -1) {
-      logger("[Error] Python function eval_h returns non-PyTuple");
-      Py_DECREF(result);
-      return FALSE;
-    }
-
-    if (result_size != 2) {
-      logger("[Error] Python function eval_h returns a tuple whose len != 2");
-      Py_DECREF(result);
-      return FALSE;
-    }
-
-    //logger("[Callback:E] eval_h (tuple is the right length)");
-
-		PyArrayObject *row = (PyArrayObject *) PyTuple_GetItem(result, 0);
-		PyArrayObject *col = (PyArrayObject *) PyTuple_GetItem(result, 1);
-
-		long *rdata = (long *)row->data;
-		long *cdata = (long *)col->data;
-
-		for (i = 0; i < nele_hess; i++) {
-			iRow[i] = (Index) rdata[i];
-			jCol[i] = (Index) cdata[i];
-			/*
-			 * logger("PyIPOPT_DEBUG %d, %d\n", iRow[i],
-			 * jCol[i]);
-			 */
-		}
-
-    //logger("[Callback:E] eval_h (clearing stuff now)");
-
-		Py_DECREF(objfactor);
-		Py_DECREF(result);
-		Py_CLEAR(arglist);
-		//logger("[Callback:R] eval_h (1b)");
-	} else {
+	if (values == NULL)
+	  for(i=0; i<myowndata->sparsity_indices_hess.n; i++)
+	    {
+	      iRow[i] = myowndata->sparsity_indices_hess.row[i];
+	      jCol[i] = myowndata->sparsity_indices_hess.col[i];
+	    }
+	else {
 		//logger("[Callback:R] eval_h (2a)");
 
 		PyObject *objfactor = Py_BuildValue("d", obj_factor);
@@ -590,7 +483,7 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
 			return FALSE;
 
 		PyObject *c_arg_list[] = {
-		  arrayx, lagrangex, objfactor, Py_False};
+		  arrayx, lagrangex, objfactor};
 
 		arglist = build_arg_tuple((PyObject**[]){c_arg_list, callback_args, NULL},
 				  (unsigned int[]){sizeof(c_arg_list)/sizeof(PyObject*), myowndata->n_callback_args});
@@ -610,9 +503,9 @@ eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
     }
 
 		double *tempdata = (double *)result->data;
-		for (i = 0; i < nele_hess; i++) {
-			values[i] = tempdata[i];
-		}
+		for (i=0; i<(unsigned int)nele_hess; i++)
+		  values[i] = tempdata[i];
+
 		Py_CLEAR(arrayx);
 		Py_CLEAR(lagrangex);
 		Py_CLEAR(objfactor);

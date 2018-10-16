@@ -24,8 +24,8 @@ __author__ = "Eric Xu. Washington University"
 
 
 def print_variable(variable_name, value):
-    for i in range(len(value)):
-        print("{} {}".format(variable_name + "["+str(i)+"] =", value[i]))
+    for i, val in enumerate(value):
+        print("{} {}".format(variable_name + "["+str(i)+"] =", val))
 
 
 nvar = 4
@@ -62,13 +62,7 @@ def eval_g(x):
     ], float_)
 
 
-nnzj = 8
-
-
-def eval_jac_g(x, flag):
-    if flag:
-        return (array([0, 0, 0, 0, 1, 1, 1, 1]),
-                array([0, 1, 2, 3, 0, 1, 2, 3]))
+def eval_jac_g(x):
     assert len(x) == nvar
     return array([x[1] * x[2] * x[3],
                   x[0] * x[2] * x[3],
@@ -80,14 +74,11 @@ def eval_jac_g(x, flag):
                   2.0 * x[3]])
 
 
-nnzh = 10
+eval_jac_g.sparsity_indices = (array([0, 0, 0, 0, 1, 1, 1, 1]),
+                               array([0, 1, 2, 3, 0, 1, 2, 3]))
 
 
-def eval_h(x, lagrange, obj_factor, flag):
-    if flag:
-        hrow = [0, 1, 1, 2, 2, 2, 3, 3, 3, 3]
-        hcol = [0, 0, 1, 0, 1, 2, 0, 1, 2, 3]
-        return (array(hcol), array(hrow))
+def eval_h(x, lagrange, obj_factor):
     values = zeros((10), float_)
     values[0] = obj_factor * (2 * x[3])
     values[1] = obj_factor * (x[3])
@@ -114,12 +105,17 @@ def eval_h(x, lagrange, obj_factor, flag):
     return values
 
 
-def apply_new(x):
+eval_h.sparsity_indices = (array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
+                           array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3]))
+
+
+def apply_new(_x):
     return True
 
 
-nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, nnzj,
-                     nnzh, eval_f, eval_grad_f, eval_g, eval_jac_g)
+nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
+                     eval_h.sparsity_indices,
+                     eval_f, eval_grad_f, eval_g, eval_jac_g)
 
 x0 = array([1.0, 5.0, 5.0, 1.0])
 pi0 = array([1.0, 1.0])
@@ -130,8 +126,8 @@ nlp.int_option('max_iter', 4)  # limit the number of max iterations
 zl = zeros(nvar)
 zu = zeros(nvar)
 constraint_multipliers = zeros(ncon)
-x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
-                           mult_x_L=zl, mult_x_U=zu)
+_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
+                            mult_x_L=zl, mult_x_U=zu)
 # import pdb; pdb.set_trace()
 nlp.close()
 
@@ -143,20 +139,21 @@ print("Solution of the constraint multipliers, lambda")
 print_variable("lambda", constraint_multipliers)
 
 
-nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, nnzj,
-                     nnzh, eval_f, eval_grad_f, eval_g, eval_jac_g)
+nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
+                     eval_h.sparsity_indices,
+                     eval_f, eval_grad_f, eval_g, eval_jac_g)
 nlp.str_option('warm_start_init_point', 'yes')
 nlp.num_option('warm_start_bound_push', 1e-8)
 nlp.num_option('warm_start_slack_bound_push', 1e-8)
 nlp.num_option('warm_start_mult_bound_push', 1e-8)
 nlp.int_option('print_level', 5)
 print("Starting at previous solution and solving again")
-x, obj, status = nlp.solve(x, mult_g=constraint_multipliers,
-                           mult_x_L=zl, mult_x_U=zu)
+_x, obj, status = nlp.solve(_x, mult_g=constraint_multipliers,
+                            mult_x_L=zl, mult_x_U=zu)
 nlp.close()
 
 print("Solution of the primal variables, x")
-print_variable("x", x)
+print_variable("x", _x)
 
 print("Solution of the bound multipliers, z_L and z_U")
 print_variable("z_L", zl)

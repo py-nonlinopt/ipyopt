@@ -40,6 +40,11 @@ Bool eval_intermediate_callback(Index alg_mod,
 				Index ls_trials, UserDataPtr data);
 
 typedef struct {
+  unsigned int n;
+  Index *row, *col;
+} SparsityIndices;
+
+typedef struct {
 	PyObject *eval_f_python;
 	PyObject *eval_grad_f_python;
 	PyObject *eval_g_python;
@@ -50,6 +55,7 @@ typedef struct {
 	unsigned int n_callback_args;
 	PyObject **callback_args;
 	PyObject *callback_kwargs;
+  SparsityIndices sparsity_indices_jac_g, sparsity_indices_hess;
 } DispatchData;
 
 

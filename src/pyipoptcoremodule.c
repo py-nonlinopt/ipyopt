@@ -73,13 +73,9 @@ static char PYIPOPT_CREATE_DOC[] =
        eval_f is the call back function to calculate objective value, \n \
                it takes one single argument x as input vector \n \
        eval_grad_f calculates gradient for objective function \n \
-       eval_g calculates the constraint values and return an array \n \
-       eval_jac_g calculates the Jacobi matrix. It takes two arguments, \n \
-               the first is the variable x and the second is a Boolean flag \n \
-               if the flag is true, it supposed to return a tuple (row, col) \n \
-                       to indicate the sparse Jacobi matrix's structure. \n \
-               if the flag is false if returns the values of the Jacobi matrix \n \
-                       with length nnzj \n \
+       eval_g calculates the constraint values and return an array\n \
+       eval_jac_g calculates the Jacobi matrix. It takes an argument x\n \
+               and returns the values of the Jacobi matrix with length nnzj \n \
        eval_h calculates the hessian matrix, it's optional. \n \
                if omitted, please set nnzh to 0 and Ipopt will use approximated hessian \n \
                which will make the convergence slower. ";
@@ -290,16 +286,77 @@ static PyObject *set_loglevel(PyObject * obj, PyObject * args)
 	return Py_True;
 }
 
+static void sparsity_indices_allocate(SparsityIndices *idx, unsigned int n)
+{
+  idx->row = malloc(n*sizeof(Index));
+  idx->col = malloc(n*sizeof(Index));
+  idx->n = n;
+}
+static void sparsity_indices_free(SparsityIndices* idx)
+{
+  if(idx->row != NULL) free(idx->row);
+  if(idx->col != NULL) free(idx->col);
+}
+static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx)
+{
+  PyObject *rows, *cols;
+  Py_ssize_t n, i;
+  if(!PyTuple_Check(obj))
+    {
+      PyErr_Format(PyExc_TypeError, "Sparsity info: a tuple of size 2 is needed.");
+      return 0;
+    }
+  if(PyTuple_Size(obj) != 2)
+    {
+      PyErr_Format(PyExc_TypeError, "Sparsity info: a tuple of size 2 is needed. Found tuple of size %d", PyTuple_Size(obj));
+      return 0;
+    }
+  rows = PyTuple_GetItem(obj, 0);
+  cols = PyTuple_GetItem(obj, 1);
+  n = PyObject_Length(rows);
+  if(n != PyObject_Length(cols))
+    {
+      PyErr_Format(PyExc_TypeError, "Sparsity info: length of row indices (%d) does not match lenth of column indices (%d)", n, PyObject_Length(cols));
+      return 0;
+    }
+  sparsity_indices_allocate(idx, n);
+  PyObject *row_iter = PyObject_GetIter(rows);
+  PyObject *col_iter = PyObject_GetIter(cols);
+  PyObject *row_item, *col_item;
+  for(i=0; i<n; i++)
+    {
+      row_item = PyIter_Next(row_iter);
+      col_item = PyIter_Next(col_iter);
+      if(row_item != NULL) idx->row[i] = PyLong_AsLong(row_item);
+      if(col_item != NULL) idx->col[i] = PyLong_AsLong(col_item);
+      if(row_item == NULL || col_item == NULL || PyErr_Occurred() != NULL)
+	{
+	  PyErr_Format(PyExc_TypeError, "Sparsity info: Row an column indices must be integers");
+	  sparsity_indices_free(idx);
+	  return 0;
+	}
+    }
+  return 1;
+}
+
+
 static PyObject *create(PyObject * obj, PyObject * args)
 {
-	PyObject *f = NULL;
-	PyObject *gradf = NULL;
-	PyObject *g = NULL;
-	PyObject *jacg = NULL;
-	PyObject *h = NULL;
 	PyObject *applynew = NULL;
 
-	DispatchData myowndata;
+	DispatchData myowndata = {
+				  .eval_f_python = NULL,
+				  .eval_grad_f_python = NULL,
+				  .eval_g_python = NULL,
+				  .eval_jac_g_python = NULL,
+				  .eval_h_python = NULL,
+				  .apply_new_python = NULL,
+				  .callback_args = NULL,
+				  .n_callback_args = 0,
+				  .callback_kwargs = NULL,
+				  .sparsity_indices_jac_g = { 0 },
+				  .sparsity_indices_hess = { 0 }
+	};
 
 	/*
 	 * I have to create a new python object here, return this python object
@@ -314,9 +371,6 @@ static PyObject *create(PyObject * obj, PyObject * args)
 
 	problem *object = NULL;
 
-	int nele_jac;
-	int nele_hess;
-
 	Number *x_L = NULL;	/* lower bounds on x */
 	Number *x_U = NULL;	/* upper bounds on x */
 	Number *g_L = NULL;	/* lower bounds on g */
@@ -329,65 +383,72 @@ static PyObject *create(PyObject * obj, PyObject * args)
 
 	DispatchData *dp = NULL;
 
-	PyObject *retval = NULL;
+	PyObject *sparsity_indices_jac_g = NULL;
+	PyObject *sparsity_indices_hess = NULL;
 
 	/* Init the myowndata field */
-	myowndata.eval_f_python = NULL;
-	myowndata.eval_grad_f_python = NULL;
-	myowndata.eval_g_python = NULL;
-	myowndata.eval_jac_g_python = NULL;
-	myowndata.eval_h_python = NULL;
-	myowndata.apply_new_python = NULL;
-	myowndata.callback_args = NULL;
-	myowndata.n_callback_args = 0;
-	myowndata.callback_kwargs = NULL;
 
 	/* "O!", &PyArray_Type &a_x  */
-	if (!PyArg_ParseTuple(args, "iO!O!iO!O!iiOOOO|OO:pyipoptcreate",
-			      &n, &PyArray_Type, &xL,
+	if (!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OO:pyipoptcreate",
+			      &n,
+			      &PyArray_Type, &xL,
 			      &PyArray_Type, &xU,
 			      &m,
 			      &PyArray_Type, &gL,
 			      &PyArray_Type, &gU,
-			      &nele_jac, &nele_hess,
-			      &f, &gradf, &g, &jacg, &h, &applynew)) {
-		retval = NULL;
-		SAFE_FREE(x_L);
-		SAFE_FREE(x_U);
-		SAFE_FREE(g_L);
-		SAFE_FREE(g_U);
-		return retval;
-	}
-	if (!PyCallable_Check(f) ||
-	    !PyCallable_Check(gradf) ||
-	    !PyCallable_Check(g) || !PyCallable_Check(jacg)) {
+			      &sparsity_indices_jac_g,
+			      &sparsity_indices_hess,
+			      &myowndata.eval_f_python,
+			      &myowndata.eval_grad_f_python,
+			      &myowndata.eval_g_python,
+			      &myowndata.eval_jac_g_python,
+			      &myowndata.eval_h_python,
+			      &applynew)
+	    || !parse_sparsity_indices(sparsity_indices_jac_g, &myowndata.sparsity_indices_jac_g))
+	  {
+	    SAFE_FREE(x_L);
+	    SAFE_FREE(x_U);
+	    SAFE_FREE(g_L);
+	    SAFE_FREE(g_U);
+	    return NULL;
+	  }
+	if (!PyCallable_Check(myowndata.eval_f_python)
+	    || !PyCallable_Check(myowndata.eval_grad_f_python)
+	    || !PyCallable_Check(myowndata.eval_g_python)
+	    || !PyCallable_Check(myowndata.eval_jac_g_python)) {
 		PyErr_SetString(PyExc_TypeError,
 				"Need a callable object for callback functions");
-		retval = NULL;
 		SAFE_FREE(x_L);
 		SAFE_FREE(x_U);
 		SAFE_FREE(g_L);
 		SAFE_FREE(g_U);
-		return retval;
+		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+		sparsity_indices_free(&myowndata.sparsity_indices_hess);
+		return NULL;
 	}
-	myowndata.eval_f_python = f;
-	myowndata.eval_grad_f_python = gradf;
-	myowndata.eval_g_python = g;
-	myowndata.eval_jac_g_python = jacg;
-
-	if (h != NULL) {
-		if (PyCallable_Check(h)) {
-			myowndata.eval_h_python = h;
-		} else {
+	if (myowndata.eval_h_python != NULL) {
+		if(!PyCallable_Check(myowndata.eval_h_python)) {
 			PyErr_SetString(PyExc_TypeError,
 					"Need a callable object for function h.");
-			retval = NULL;
 			SAFE_FREE(x_L);
 			SAFE_FREE(x_U);
 			SAFE_FREE(g_L);
 			SAFE_FREE(g_U);
-			return retval;
+			sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+			sparsity_indices_free(&myowndata.sparsity_indices_hess);
+			return NULL;
 		}
+		if(!parse_sparsity_indices(sparsity_indices_hess, &myowndata.sparsity_indices_hess))
+		  {
+		    SAFE_FREE(x_L);
+		    SAFE_FREE(x_U);
+		    SAFE_FREE(g_L);
+		    SAFE_FREE(g_U);
+		    sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+		    sparsity_indices_free(&myowndata.sparsity_indices_hess);
+		    return NULL;
+		}
+
 	} else {
 		logger("[PyIPOPT] Ipopt will use Hessian approximation.\n");
 	}
@@ -398,32 +459,35 @@ static PyObject *create(PyObject * obj, PyObject * args)
 		} else {
 			PyErr_SetString(PyExc_TypeError,
 					"Need a callable object for function applynew.");
-			retval = NULL;
 			SAFE_FREE(x_L);
 			SAFE_FREE(x_U);
 			SAFE_FREE(g_L);
 			SAFE_FREE(g_U);
-			return retval;
+			sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+			sparsity_indices_free(&myowndata.sparsity_indices_hess);
+			return NULL;
 		}
 	}
 	if (m < 0 || n < 0) {
 		PyErr_SetString(PyExc_TypeError, "m or n can't be negative");
-		retval = NULL;
 		SAFE_FREE(x_L);
 		SAFE_FREE(x_U);
 		SAFE_FREE(g_L);
 		SAFE_FREE(g_U);
-		return retval;
+		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+		sparsity_indices_free(&myowndata.sparsity_indices_hess);
+		return NULL;
 	}
 	x_L = (Number *) malloc(sizeof(Number) * n);
 	x_U = (Number *) malloc(sizeof(Number) * n);
 	if (!x_L || !x_U) {
-		retval = PyErr_NoMemory();
 		SAFE_FREE(x_L);
 		SAFE_FREE(x_U);
 		SAFE_FREE(g_L);
 		SAFE_FREE(g_U);
-		return retval;
+		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+		sparsity_indices_free(&myowndata.sparsity_indices_hess);
+		return PyErr_NoMemory();
 	}
 	xldata = (double *)xL->data;
 	xudata = (double *)xU->data;
@@ -446,11 +510,11 @@ static PyObject *create(PyObject * obj, PyObject * args)
 	}
 
   /* Grab the callback objects because we want to use them later. */
-  Py_XINCREF(f);
-  Py_XINCREF(gradf);
-  Py_XINCREF(g);
-  Py_XINCREF(jacg);
-  Py_XINCREF(h);
+  Py_XINCREF(myowndata.eval_f_python);
+  Py_XINCREF(myowndata.eval_grad_f_python);
+  Py_XINCREF(myowndata.eval_g_python);
+  Py_XINCREF(myowndata.eval_jac_g_python);
+  Py_XINCREF(myowndata.eval_h_python);
   Py_XINCREF(applynew);
 
 	/* create the Ipopt Problem */
@@ -458,7 +522,8 @@ static PyObject *create(PyObject * obj, PyObject * args)
 	int C_indexstyle = 0;
 	IpoptProblem thisnlp = CreateIpoptProblem(n,
 						  x_L, x_U, m, g_L, g_U,
-						  nele_jac, nele_hess,
+						  myowndata.sparsity_indices_jac_g.n,
+						  myowndata.sparsity_indices_hess.n,
 						  C_indexstyle,
 						  &eval_f, &eval_g,
 						  &eval_grad_f,
@@ -466,12 +531,13 @@ static PyObject *create(PyObject * obj, PyObject * args)
 	logger("[PyIPOPT] Problem created");
 	if (!thisnlp) {
 		PyErr_SetString(PyExc_MemoryError, "Cannot create IpoptProblem instance");
-		retval = NULL;
 		SAFE_FREE(x_L);
 		SAFE_FREE(x_U);
 		SAFE_FREE(g_L);
 		SAFE_FREE(g_U);
-		return retval;
+		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+		sparsity_indices_free(&myowndata.sparsity_indices_hess);
+		return NULL;
 	}
 	object = PyObject_NEW(problem, &IpoptProblemType);
 
@@ -481,29 +547,30 @@ static PyObject *create(PyObject * obj, PyObject * args)
 		object->nlp = thisnlp;
 		dp = (DispatchData *) malloc(sizeof(DispatchData));
 		if (!dp) {
-			retval = PyErr_NoMemory();
 			SAFE_FREE(x_L);
 			SAFE_FREE(x_U);
 			SAFE_FREE(g_L);
 			SAFE_FREE(g_U);
-			return retval;
+			sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+			sparsity_indices_free(&myowndata.sparsity_indices_hess);
+			return PyErr_NoMemory();
 		}
 		memcpy((void *)dp, (void *)&myowndata, sizeof(DispatchData));
 		object->data = dp;
-		retval = (PyObject *) object;
 		SAFE_FREE(x_L);
 		SAFE_FREE(x_U);
 		SAFE_FREE(g_L);
 		SAFE_FREE(g_U);
-		return retval;
+		return (PyObject *) object;
 	} else {
 		PyErr_SetString(PyExc_MemoryError, "Can't create a new Problem instance");
-		retval = NULL;
 		SAFE_FREE(x_L);
 		SAFE_FREE(x_U);
 		SAFE_FREE(g_L);
 		SAFE_FREE(g_U);
-		return retval;
+		sparsity_indices_free(&myowndata.sparsity_indices_jac_g);
+		sparsity_indices_free(&myowndata.sparsity_indices_hess);
+		return NULL;
 	}
 }
 
@@ -761,6 +828,8 @@ PyObject *close_model(PyObject * self, PyObject * args)
 	Py_XDECREF(dp->eval_jac_g_python);
 	Py_XDECREF(dp->eval_h_python);
 	Py_XDECREF(dp->apply_new_python);
+	sparsity_indices_free(&dp->sparsity_indices_jac_g);
+	sparsity_indices_free(&dp->sparsity_indices_hess);
 
 	free(dp);
 	obj->data = NULL;
