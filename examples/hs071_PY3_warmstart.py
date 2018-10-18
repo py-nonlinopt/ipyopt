@@ -1,20 +1,15 @@
 #!/usr/bin/python
+
 """
 The same model as Ipopt/examples/hs071
 
- You can set Ipopt options by calling nlp.num_option, nlp.str_option
-or nlp.int_option. For instance, to set the tolarance by calling
+You can set Ipopt options by calling nlp.set.
+For instance, to set the tolarance by calling
 
-    nlp.num_option('tol', 1e-8)
+    nlp.set(tol=1e-8)
 
 For a complete list of Ipopt options, refer to
-
     http://www.coin-or.org/Ipopt/documentation/node59.html
-
-Note that Ipopt distinguishs between Int, Num, and Str options, yet sometimes
-does not explicitly tell you which option is which.  If you are not sure about
-the option's type, just try it in PyIpopt.  If you try to set one type of
-option using the wrong function, Pyipopt will remind you of it.
 """
 
 import pyipopt
@@ -120,7 +115,7 @@ pi0 = array([1.0, 1.0])
 
 print("Going to call solve for 4 iterations")
 print("x0 = {}".format(x0))
-nlp.int_option('max_iter', 4)  # limit the number of max iterations
+nlp.set(max_iter=4)  # limit the number of max iterations
 zl = zeros(nvar)
 zu = zeros(nvar)
 constraint_multipliers = zeros(ncon)
@@ -140,11 +135,11 @@ print_variable("lambda", constraint_multipliers)
 nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
                      eval_h.sparsity_indices,
                      eval_f, eval_grad_f, eval_g, eval_jac_g)
-nlp.str_option('warm_start_init_point', 'yes')
-nlp.num_option('warm_start_bound_push', 1e-8)
-nlp.num_option('warm_start_slack_bound_push', 1e-8)
-nlp.num_option('warm_start_mult_bound_push', 1e-8)
-nlp.int_option('print_level', 5)
+nlp.set(warm_start_init_point='yes',
+        warm_start_bound_push=1e-8,
+        warm_start_slack_bound_push=1e-8,
+        warm_start_mult_bound_push=1e-8,
+        print_level=5)
 print("Starting at previous solution and solving again")
 _x, obj, status = nlp.solve(_x, mult_g=constraint_multipliers,
                             mult_x_L=zl, mult_x_U=zu)

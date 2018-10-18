@@ -35,22 +35,11 @@ static char PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC[] =
 
 static char PYIPOPT_CLOSE_DOC[] = "After all the solving, close the model\n";
 
-static char PYIPOPT_ADD_STR_OPTION_DOC[] =
-  "Set the String (char* in C) option for Ipopt. Refer to the Ipopt \n \
+static char PYIPOPT_SET_OPTION_DOC[] =
+  "set([key1=val1, ...])\n\n \
+   Set one or more Ipopt options. Refer to the Ipopt \n		       \
      document for more information about Ipopt options, or use \n      \
        ipopt --print-options \n					       \
-     to see a list of available options.";
-
-static char PYIPOPT_ADD_INT_OPTION_DOC[] =
-  "Set the Int (int in C) option for Ipopt. Refer to the Ipopt \n \
-     document for more information about Ipopt options, or use \n \
-       ipopt --print-options \n					  \
-     to see a list of available options.";
-
-static char PYIPOPT_ADD_NUM_OPTION_DOC[] =
-  "Set the Number (double in C) option for Ipopt. Refer to the Ipopt \n \
-     document for more information about Ipopt options, or use \n	\
-       ipopt --print-options \n						\
      to see a list of available options.";
 
 static char PYIPOPT_CREATE_DOC[] =
@@ -92,6 +81,13 @@ static char PYIPOPT_LOG_DOC[] = "set_loglevel(level)\n \
 
 int user_log_level = TERSE;
 
+static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args);
+Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
+Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
+static Bool _PyArray_Check(const PyObject* obj) { return PyArray_Check(obj); } // Macro -> function
+static Bool check_args(const PyObject *args);
+static Bool check_kwargs(const PyObject *kwargs);
+
 // Object Section
 // sig of this is void foo(PyO*)
 static void problem_dealloc(PyObject *self)
@@ -105,66 +101,87 @@ PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords);
 PyObject *set_intermediate_callback(PyObject *self, PyObject *args);
 PyObject *close_model(PyObject *self, PyObject *args);
 
-static PyObject *add_str_option(PyObject *self, PyObject *args)
-{
-  problem *temp = (problem*) self;
-  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-  char *param;
-  char *value;
-  Bool ret;
+static Bool _PyLong_Check(const PyObject* obj) { return PyLong_Check(obj); } // Macro -> function
+static Bool _PyUnicode_Check(const PyObject* obj) { return PyUnicode_Check(obj); } // Macro -> function
+static Bool _PyFloat_Check(const PyObject* obj) { return PyFloat_Check(obj); } // Macro -> function
 
-  if(!PyArg_ParseTuple(args, "ss:str_option", &param, &value)) return NULL;
-  ret = AddIpoptStrOption(nlp, (char*)param, value);
-  if(ret)
+static Bool set_int_option(IpoptProblem nlp, char *key, PyObject *obj)
+{ return AddIpoptIntOption(nlp, key, PyLong_AsLong(obj)); }
+static Bool set_num_option(IpoptProblem nlp, char *key, PyObject *obj)
+{ return AddIpoptNumOption(nlp, key, PyFloat_AsDouble(obj)); }
+static Bool set_str_option(IpoptProblem nlp, char *key, PyObject *obj)
+{ return AddIpoptStrOption(nlp, key, (char*)PyUnicode_AsUTF8(obj)); }
+
+typedef struct
+{
+  Bool (*check)(const PyObject*);
+  Bool (*set_option)(IpoptProblem, char*, PyObject*);
+  char *type_repr;
+} type_mapping_record;
+
+const static type_mapping_record type_mapping[] =
+  {
+   {.check = _PyFloat_Check, .set_option = set_num_option, .type_repr = "num"},
+   {.check = _PyUnicode_Check, .set_option = set_str_option, .type_repr = "str"},
+   {.check = _PyLong_Check, .set_option = set_int_option, .type_repr = "int"}
+  };
+
+static PyObject* add_option(IpoptProblem nlp, PyObject *key, PyObject *val)
+{
+  const char *c_key = PyUnicode_AsUTF8(key);
+  unsigned int i;
+  Bool ret = FALSE;
+  for(i=0; i<sizeof(type_mapping)/sizeof(type_mapping_record); i++)
+    if((*type_mapping[i].check)(val))
+      {
+	ret = (*type_mapping[i].set_option)(nlp, (char*)c_key, val);
+	if(!ret || PyErr_Occurred() != NULL)
+	  return PyErr_Format(PyExc_ValueError, "%s is not a valid %s option", c_key, type_mapping[i].type_repr);
+	return NULL;
+      }
+  return PyErr_Format(PyExc_TypeError, "The value for option %s has unsupported type", c_key);
+}
+static PyObject* add_options(IpoptProblem nlp, PyObject *dict)
+{
+  PyObject *key, *val;
+  Py_ssize_t pos = 0;
+  PyObject *err;
+
+  if(dict == NULL) return NULL;
+  while (PyDict_Next(dict, &pos, &key, &val))
     {
-      Py_INCREF(Py_True);
-      return Py_True;
+      err = add_option(nlp, key, val);
+      if(err != NULL)
+	return err;
     }
-  else 
-    return PyErr_Format(PyExc_ValueError, "%s is not a valid string option", param);
+  return NULL;
 }
 
-static PyObject *add_int_option(PyObject *self, PyObject *args)
+static Bool check_no_args(const char* f_name, PyObject *args)
 {
-  problem *temp = (problem*) self;
-  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-  
-  char *param;
-  int value;
-  
-  Bool ret;
-
-  if(!PyArg_ParseTuple(args, "si:int_option", &param, &value)) return NULL;
-  ret = AddIpoptIntOption(nlp, (char*)param, value);
-  if(ret)
+  if(args == NULL) return TRUE;
+  if(!PyTuple_Check(args))
     {
-      Py_INCREF(Py_True);
-      return Py_True;
-  }
-  else
-    return PyErr_Format(PyExc_ValueError, "%s is not a valid int option", param);
-}
-
-static PyObject *add_num_option(PyObject *self, PyObject *args)
-{
-  problem *temp = (problem*) self;
-  IpoptProblem nlp = (IpoptProblem) (temp->nlp);
-
-  char *param;
-  double value;
-
-  Bool ret;
-
-  if(!PyArg_ParseTuple(args, "sd:num_option", &param, &value)) return NULL;
-  ret = AddIpoptNumOption(nlp, (char*)param, value);
-  if(ret)
-    {
-      Py_INCREF(Py_True);
-      return Py_True;
+      PyErr_Format(PyExc_RuntimeError, "Argument keywords is not a dict");
+      return FALSE;
     }
-  else
-    return PyErr_Format(PyExc_ValueError, "%s is not a valid num option", param);
+  unsigned int n = PyTuple_Size(args);
+  if(n == 0) return TRUE;
+  PyErr_Format(PyExc_TypeError, "%s() takes 0 positional arguments but %d %s given", f_name, n, n==1?"was":"were");
+  return FALSE;
 }
+static PyObject *set(PyObject *self, PyObject *args, PyObject *keywords)
+{
+  IpoptProblem nlp = (IpoptProblem)(((problem*)self)->nlp);
+
+  PyObject *err;
+  if(!check_kwargs(keywords) || !check_no_args("set", args)) return PyErr_Occurred();
+  err = add_options(nlp, keywords);
+  if(err)
+    return err;
+  return Py_True;
+}
+
 
 PyMethodDef problem_methods[] =
   {
@@ -172,9 +189,7 @@ PyMethodDef problem_methods[] =
    {"set_intermediate_callback", set_intermediate_callback, METH_VARARGS,
     PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC},
    {"close", close_model, METH_VARARGS, PYIPOPT_CLOSE_DOC},
-   {"int_option", add_int_option, METH_VARARGS, PYIPOPT_ADD_INT_OPTION_DOC},
-   {"str_option", add_str_option, METH_VARARGS, PYIPOPT_ADD_STR_OPTION_DOC},
-   {"num_option", add_num_option, METH_VARARGS, PYIPOPT_ADD_NUM_OPTION_DOC},
+   {"set", (PyCFunction)set, METH_VARARGS | METH_KEYWORDS, PYIPOPT_SET_OPTION_DOC},
    {NULL, NULL},
   };
 
@@ -329,7 +344,7 @@ static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx)
 }
 
 
-static PyObject *create(PyObject *obj, PyObject *args)
+static PyObject *create(PyObject *obj, PyObject *args, PyObject *keywords)
 {
   PyObject *applynew = NULL;
   
@@ -376,7 +391,7 @@ static PyObject *create(PyObject *obj, PyObject *args)
   PyObject *sparsity_indices_hess = NULL;
   
   // Init the myowndata field
-  if(!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OO:pyipoptcreate",
+  if(!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OOO:pyipoptcreate",
 		       &n,
 		       &PyArray_Type, &xL,
 		       &PyArray_Type, &xU,
@@ -391,7 +406,8 @@ static PyObject *create(PyObject *obj, PyObject *args)
 		       &myowndata.eval_jac_g_python,
 		       &myowndata.eval_h_python,
 		       &applynew)
-     || !parse_sparsity_indices(sparsity_indices_jac_g, &myowndata.sparsity_indices_jac_g))
+     || !parse_sparsity_indices(sparsity_indices_jac_g, &myowndata.sparsity_indices_jac_g)
+     || !check_kwargs(keywords))
     {
       SAFE_FREE(x_L);
       SAFE_FREE(x_U);
@@ -554,7 +570,9 @@ static PyObject *create(PyObject *obj, PyObject *args)
       SAFE_FREE(x_U);
       SAFE_FREE(g_L);
       SAFE_FREE(g_U);
-      return (PyObject*) object;
+      PyObject *err = add_options(thisnlp, keywords);
+      if(err != NULL) return err;
+      return (PyObject*)object;
     }
   else
     {
@@ -595,12 +613,6 @@ PyObject *set_intermediate_callback(PyObject *self, PyObject *args)
     }
 }
 
-static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args);
-Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
-Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
-static Bool _PyArray_Check(const PyObject* obj) { return PyArray_Check(obj); } // Macro -> function
-static Bool check_args(const PyObject *args);
-static Bool check_kwargs(const PyObject *kwargs);
 
 
 #define SOLVE_CLEANUP() \
@@ -766,7 +778,9 @@ static Bool check_args(const PyObject *args)
 }
 static Bool check_kwargs(const PyObject *kwargs)
 {
-  return (kwargs == NULL || kwargs == Py_None || PyDict_Check(kwargs));
+  if (kwargs == NULL || kwargs == Py_None || PyDict_Check(kwargs)) return TRUE;
+  PyErr_Format(PyExc_RuntimeError, "C-API-Level Error: keywords are not of type dict");
+  return FALSE;
 }
 Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name)
 {
@@ -809,7 +823,7 @@ PyObject *close_model(PyObject *self, PyObject *args)
 // Begin Python Module code section
 static PyMethodDef ipoptMethods[] =
   {
-   {"create", create, METH_VARARGS, PYIPOPT_CREATE_DOC},
+   {"create", (PyCFunction)create, METH_VARARGS | METH_KEYWORDS, PYIPOPT_CREATE_DOC},
    {"set_loglevel", set_loglevel, METH_VARARGS, PYIPOPT_LOG_DOC},
    {NULL, NULL}
   };

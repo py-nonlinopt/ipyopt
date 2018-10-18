@@ -3,19 +3,13 @@
 """
 The same model as Ipopt/examples/hs071
 
- You can set Ipopt options by calling nlp.num_option, nlp.str_option
-or nlp.int_option. For instance, to set the tolarance by calling
+You can set Ipopt options by calling nlp.set.
+For instance, to set the tolarance by calling
 
-    nlp.num_option('tol', 1e-8)
+    nlp.set(tol=1e-8)
 
 For a complete list of Ipopt options, refer to
-
     http://www.coin-or.org/Ipopt/documentation/node59.html
-
-Note that Ipopt distinguishs between Int, Num, and Str options, yet sometimes
-does not explicitly tell you which option is which.  If you are not sure about
-the option's type, just try it in PyIpopt.  If you try to set one type of
-option using the wrong function, Pyipopt will remind you of it.
 """
 
 from __future__ import print_function
