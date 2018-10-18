@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 Originally contributed by Lorne McIntosh.
 Modified by Eric Xu
