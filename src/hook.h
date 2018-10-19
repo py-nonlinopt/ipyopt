@@ -5,8 +5,6 @@
 #include "IpStdCInterface.h"
 #include <stdio.h>
 
-#include "numpy/arrayobject.h"
-
 #ifndef PY_IPOPT_HOOK_
 #define PY_IPOPT_HOOK_
 

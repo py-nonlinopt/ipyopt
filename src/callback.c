@@ -33,6 +33,10 @@
  * Changed logger from code contributed by alanfalloon  
 */
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NO_IMPORT_ARRAY
+#define PY_ARRAY_UNIQUE_SYMBOL pyipopt_ARRAY_API
+#include "numpy/arrayobject.h"
 #include "hook.h"
 #include <unistd.h>
 
@@ -123,8 +127,7 @@ Bool eval_f(Index n, Number *x, Bool new_x, Number *obj_value, UserDataPtr data)
   PyObject **callback_args = myowndata->callback_args;
   PyObject *callback_kwargs = myowndata->callback_kwargs;
   
-  import_array1(FALSE);
-  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)x);
   if(!arrayx) return FALSE;
   
   if(new_x && myowndata->apply_new_python)
@@ -187,9 +190,7 @@ Bool eval_grad_f(Index n, Number *x, Bool new_x, Number *grad_f, UserDataPtr dat
 
   npy_intp dims[] = {n};
 
-  import_array1(FALSE);
-
-  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)x);
   if(!arrayx) return FALSE;
 
   if(new_x && myowndata->apply_new_python)
@@ -208,7 +209,7 @@ Bool eval_grad_f(Index n, Number *x, Bool new_x, Number *grad_f, UserDataPtr dat
       Py_DECREF(tempresult);
     }
 
-  PyObject *out = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)grad_f);
+  PyObject *out = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)grad_f);
   if(!out) return FALSE;
   PyObject *args[] = {arrayx, out};
   PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
@@ -230,9 +231,7 @@ Bool eval_g(Index n, Number *x, Bool new_x, Index m, Number *g, UserDataPtr data
   if(myowndata->eval_g_python == NULL) PyErr_Print();
   npy_intp dims[] = {n};
 
-  import_array1(FALSE);
-  
-  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+  PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)x);
   if(!arrayx) return FALSE;
   
   if(new_x && myowndata->apply_new_python)
@@ -251,7 +250,7 @@ Bool eval_g(Index n, Number *x, Bool new_x, Index m, Number *g, UserDataPtr data
       Py_DECREF(tempresult);
     }
   dims[0] = m;
-  PyObject *out = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)g);
+  PyObject *out = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)g);
   if(!out) return FALSE;
   PyObject *args[] = {arrayx, out};
   PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
@@ -287,7 +286,7 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
       }
   else
     {
-      PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+      PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)x);
       if(!arrayx) return FALSE;
       if(new_x && myowndata->apply_new_python)
 	{
@@ -304,7 +303,7 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
 	  Py_DECREF(tempresult);
 	}
       dims[0] = nele_jac;
-      PyObject *out = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)values);
+      PyObject *out = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)values);
       if(!out) return FALSE;
       PyObject *args[] = {arrayx, out};
       PyObject *arglist = build_arg_tuple((PyObject**[]){args, callback_args, NULL},
@@ -346,7 +345,7 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
     {
       PyObject *objfactor = Py_BuildValue("d", obj_factor);
       
-      PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)x);
+      PyObject *arrayx = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)x);
       if(!arrayx) return FALSE;
 
       if(new_x && myowndata->apply_new_python)
@@ -365,11 +364,11 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
 	  Py_DECREF(tempresult);
 	}
       dims[0] = m;
-      PyObject *lagrangex = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)lambda);
+      PyObject *lagrangex = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)lambda);
       if(!lagrangex) return FALSE;
       
       dims[0] = nele_hess;
-      PyObject *out = PyArray_SimpleNewFromData(1, dims, PyArray_DOUBLE, (char*)values);
+      PyObject *out = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char*)values);
       if(!out) return FALSE;
       PyObject *c_arg_list[] = {arrayx, lagrangex, objfactor, out};
 

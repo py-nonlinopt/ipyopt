@@ -6,6 +6,9 @@
 /*  Modifications on the SAFE_FREE macro made by          */
 /*  Guillaume Jacquenot, 2012                             */
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_ARRAY_UNIQUE_SYMBOL pyipopt_ARRAY_API
+#include "numpy/arrayobject.h"
 #include "hook.h"
 
 #ifndef SAFE_FREE
@@ -92,7 +95,7 @@ static Bool check_kwargs(const PyObject *kwargs);
 // sig of this is void foo(PyO*)
 static void problem_dealloc(PyObject *self)
 {
-  problem *temp = (problem*) self;
+  problem *temp = (problem*)self;
   SAFE_FREE(temp->data);
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -494,8 +497,8 @@ static PyObject *create(PyObject *obj, PyObject *args, PyObject *keywords)
       sparsity_indices_free(&myowndata.sparsity_indices_hess);
       return PyErr_NoMemory();
     }
-  xldata = (double*)xL->data;
-  xudata = (double*)xU->data;
+  xldata = PyArray_DATA(xL);
+  xudata = PyArray_DATA(xU);
   for(i=0; i<n; i++)
     {
       x_L[i] = xldata[i];
@@ -506,8 +509,8 @@ static PyObject *create(PyObject *obj, PyObject *args, PyObject *keywords)
   g_U = (Number*) malloc(sizeof(Number) * m);
   if(!g_L || !g_U) PyErr_NoMemory();
   
-  gldata = (double*)gL->data;
-  gudata = (double*)gU->data;
+  gldata = PyArray_DATA(gL);
+  gudata = PyArray_DATA(gU);
   
   for(i=0; i<m; i++)
     {
@@ -691,7 +694,7 @@ PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords)
   if(callback_args != Py_None && callback_args != NULL)
     unpack_args(callback_args, &unpacked_args, &n_args);
   if(callback_kwargs == Py_None) callback_kwargs = NULL;
-  if(x0->nd != 1)
+  if(PyArray_NDIM(x0) != 1)
     { //If x0 is not 1-dimensional then solve will fail and cause a segmentation fault.
       logger("[ERROR] x0 must be a 1-dimensional array");
       Py_XDECREF(x);
@@ -712,34 +715,34 @@ PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords)
     AddIpoptStrOption(nlp, "hessian_approximation", "limited-memory");
   
   // allocate space for the initial point and set the values
-  npy_intp *dim = ((PyArrayObject*) x0)->dimensions;
+  npy_intp *dim = PyArray_DIMS(x0);
   n = dim[0];
   dX[0] = n;
   
-  x = (PyArrayObject*) PyArray_SimpleNew(1, dX, PyArray_DOUBLE);
+  x = (PyArrayObject*) PyArray_SimpleNew(1, dX, NPY_DOUBLE);
   if(!x) {SOLVE_CLEANUP_MEMORY()}
   newx0 = (Number*) malloc(sizeof(Number) * n);
   if(!newx0) {SOLVE_CLEANUP_MEMORY()}
-  double *xdata = (double*)x0->data;
+  double *xdata = PyArray_DATA(x0);
   for(i=0; i<n; i++)
     newx0[i] = xdata[i];
   
   // Allocate multiplier arrays
   if(mL == NULL)
     mL_data = malloc(n * sizeof(double));
-  else if(mL->dimensions[0] != n)
+  else if(PyArray_DIMS(mL)[0] != n)
     {SOLVE_CLEANUP_TYPE("mult_x_L must be the same length as x0.\n");}
-  else mL_data = (double*)mL->data;
+  else mL_data = PyArray_DATA(mL);
   if(mU == NULL)
     mU_data = malloc(n * sizeof(double));
-  else if(mU->dimensions[0] != n)
+  else if(PyArray_DIMS(mU)[0] != n)
     {SOLVE_CLEANUP_TYPE("mult_x_U must be the same length as x0.\n");}
-  else mU_data = (double*)mU->data;
+  else mU_data = PyArray_DATA(mU);
   if(lambda == NULL)
     lambda_data = malloc(m * sizeof(double));
-  else if(lambda->dimensions[0] != m)
+  else if(PyArray_DIMS(lambda)[0] != m)
     {SOLVE_CLEANUP_TYPE("mult_g must be the same length as the constraints.\n");}
-  else lambda_data = (double*)lambda->data;
+  else lambda_data = PyArray_DATA(lambda);
   
   // For status code, see IpReturnCodes_inc.h in Ipopt
   status = IpoptSolve(nlp, newx0, NULL, &obj,
@@ -748,7 +751,7 @@ PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords)
   if(lambda == NULL && lambda_data != NULL) free(lambda_data);
   if(mU == NULL && mU_data != NULL) free(mU_data);
   if(mL == NULL && mL_data != NULL) free(mL_data);
-  double *return_x_data = (double*)x->data;
+  double *return_x_data = PyArray_DATA(x);
   for(i=0; i<n; i++)
     return_x_data[i] = newx0[i];
   
