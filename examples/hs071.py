@@ -100,8 +100,9 @@ def apply_new(_x):
     return True
 
 
-nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                     eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g)
+pyipopt.set_loglevel(pyipopt.LOGGING_DEBUG)
+nlp = pyipopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
+                      eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g)
 
 x0 = array([1.0, 5.0, 5.0, 1.0])
 pi0 = array([1.0, 1.0])
@@ -114,7 +115,6 @@ constraint_multipliers = zeros(ncon)
 _x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
                             mult_x_L=zl, mult_x_U=zu)
 # import pdb; pdb.set_trace()
-nlp.close()
 
 
 def print_variable(variable_name, value):

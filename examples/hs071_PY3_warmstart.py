@@ -106,9 +106,11 @@ def apply_new(_x):
     return True
 
 
-nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                     eval_h.sparsity_indices,
-                     eval_f, eval_grad_f, eval_g, eval_jac_g)
+pyipopt.set_loglevel(pyipopt.LOGGING_DEBUG)
+
+nlp = pyipopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
+                      eval_h.sparsity_indices,
+                      eval_f, eval_grad_f, eval_g, eval_jac_g)
 
 x0 = array([1.0, 5.0, 5.0, 1.0])
 pi0 = array([1.0, 1.0])
@@ -122,7 +124,6 @@ constraint_multipliers = zeros(ncon)
 _x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
                             mult_x_L=zl, mult_x_U=zu)
 # import pdb; pdb.set_trace()
-nlp.close()
 
 print("Solution of the bound multipliers, z_L and z_U")
 print_variable("z_L", zl)
@@ -132,9 +133,9 @@ print("Solution of the constraint multipliers, lambda")
 print_variable("lambda", constraint_multipliers)
 
 
-nlp = pyipopt.create(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                     eval_h.sparsity_indices,
-                     eval_f, eval_grad_f, eval_g, eval_jac_g)
+nlp = pyipopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
+                      eval_h.sparsity_indices,
+                      eval_f, eval_grad_f, eval_g, eval_jac_g)
 nlp.set(warm_start_init_point='yes',
         warm_start_bound_push=1e-8,
         warm_start_slack_bound_push=1e-8,
@@ -143,7 +144,6 @@ nlp.set(warm_start_init_point='yes',
 print("Starting at previous solution and solving again")
 _x, obj, status = nlp.solve(_x, mult_g=constraint_multipliers,
                             mult_x_L=zl, mult_x_U=zu)
-nlp.close()
 
 print("Solution of the primal variables, x")
 print_variable("x", _x)
