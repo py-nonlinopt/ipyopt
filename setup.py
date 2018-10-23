@@ -45,13 +45,16 @@ def get_compiler_flags():
         return compiler_flags
 
 
+url = "https://github.com/g-braeunlich/ipyopt"
+
 setup(
     name="ipyopt",
-    version="0.9",
-    description="An IPOPT connector for Python",
+    version="0.9.0.post1",
+    description="An IPOpt connector for Python",
+    long_description=open("README.md").read(),
     author="Gerhard Bräunlich",
     author_email="g.braeunlich@disroot.org",
-    url="https://github.com/g-braeunlich/ipyopt",
+    url=url,
     ext_modules=LazyList(load_extensions()),
     install_requires=["numpy"],
     setup_requires=['numpy']
