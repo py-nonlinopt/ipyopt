@@ -267,6 +267,7 @@ static PyObject *set(PyObject *self, PyObject *args, PyObject *keywords)
   if(!check_kwargs(keywords) || !check_no_args("set", args)) return PyErr_Occurred();
   if(!set_options(nlp, keywords))
     return NULL;
+  Py_INCREF(Py_None);
   return Py_None;
 }
 
@@ -397,6 +398,7 @@ static PyObject *set_loglevel(PyObject *obj, PyObject *args)
   int l;
   if(!PyArg_ParseTuple(args, "i", &l) || !logger_set_loglevel(l))
     return NULL;
+  Py_INCREF(Py_None);
   return Py_None;
 }
 
@@ -591,6 +593,7 @@ static PyObject *set_intermediate_callback(PyObject *self, PyObject *args)
       
   // Put a Python function object into this data structure
   SetIntermediateCallback(nlp, eval_intermediate_callback);
+  Py_INCREF(Py_None);
   return Py_None;
 }
 
