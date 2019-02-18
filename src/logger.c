@@ -38,7 +38,7 @@ void logger(int level, const char *fmt, ...)
     {
       va_list ap;
       va_start(ap, fmt);
-      PySys_WriteStdout("[PyIPOpt] ");
+      PySys_WriteStdout("[IPyOpt] ");
       PySys_WriteStdout(fmt, ap);
       va_end(ap);
       PySys_WriteStdout("\n");

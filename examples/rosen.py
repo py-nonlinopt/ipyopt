@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import numpy
 import scipy.optimize
-import pyipopt
+import ipyopt
 
 
 def eval_f(X):
@@ -62,7 +62,7 @@ def apply_new(_X):
 def main():
 
     # verbose
-    pyipopt.set_loglevel(pyipopt.LOGGING_DEBUG)
+    ipyopt.set_loglevel(ipyopt.LOGGING_DEBUG)
 
     # define the parameters and their box constraints
     nvar = 2
@@ -75,7 +75,7 @@ def main():
     g_U = numpy.array([], dtype=float)
 
     # create the nonlinear programming model
-    nlp = pyipopt.Problem(
+    nlp = ipyopt.Problem(
         nvar,
         x_L,
         x_U,

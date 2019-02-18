@@ -17,9 +17,9 @@ from setup_helpers import LazyList
 
 def load_extensions():
     """Gets plugged into a LazyList to prevent numpy import until numpy is installed """
-    yield Extension("pyipopt",
+    yield Extension("ipyopt",
                     sources=["src/callback.c",
-                             "src/pyipopt_module.c", "src/logger.c"],
+                             "src/ipyopt_module.c", "src/logger.c"],
                     **get_compiler_flags())
 
 
@@ -46,12 +46,12 @@ def get_compiler_flags():
 
 
 setup(
-    name="pyipopt",
+    name="ipyopt",
     version="0.9",
     description="An IPOPT connector for Python",
     author="Gerhard Bräunlich",
     author_email="g.braeunlich@disroot.org",
-    url="https://github.com/g-braeunlich/pyipopt",
+    url="https://github.com/g-braeunlich/ipyopt",
     ext_modules=LazyList(load_extensions()),
     install_requires=["numpy"],
     setup_requires=['numpy']

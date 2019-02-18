@@ -29,7 +29,7 @@
  */
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define PY_ARRAY_UNIQUE_SYMBOL pyipopt_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL ipyopt_ARRAY_API
 #include "numpy/arrayobject.h"
 
 #include "callback.h"
@@ -43,7 +43,7 @@
  * Let's put the static char docs at the beginning of this file...
  */
 
-static char PYIPOPT_SOLVE_DOC[] = "solve(x, [mult_g, mult_x_L, mult_x_U]) -> (x, obj, status)"
+static char IPYOPT_SOLVE_DOC[] = "solve(x, [mult_g, mult_x_L, mult_x_U]) -> (x, obj, status)"
   "\n\n"
   "Call Ipopt to solve problem created before and return" "\n"
   "a tuple that contains final solution x, final objective function obj," "\n"
@@ -53,12 +53,12 @@ static char PYIPOPT_SOLVE_DOC[] = "solve(x, [mult_g, mult_x_L, mult_x_U]) -> (x,
   "start applications."
   "If passed, these variables are modified.";
 
-static char PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC[] =
+static char IPYOPT_SET_INTERMEDIATE_CALLBACK_DOC[] =
   "set_intermediate_callback(callback_function)" "\n\n"
   "Set the intermediate callback function. "
   "This gets called each iteration.";
 
-static char PYIPOPT_SET_OPTION_DOC[] =
+static char IPYOPT_SET_OPTION_DOC[] =
   "set([key1=val1, ...])" "\n\n"
   "Set one or more Ipopt options. The python type of the value objects have to match "
   "the corresponding types (i.e. str, float or int) of the IPOpt options. "
@@ -67,7 +67,7 @@ static char PYIPOPT_SET_OPTION_DOC[] =
   "ipopt --print-options" "\n"
   "to see a list of available options.";
 
-static char PYIPOPT_PROBLEM_DOC[] =
+static char IPYOPT_PROBLEM_DOC[] =
   "IPOpt problem type in python" "\n\n"
   "Problem(n, xl, xu, m, gl, gu, nnzj, nnzh, eval_f, eval_grad_f, eval_g, eval_jac_g) -> Problem" "\n\n"
   "n is the number of variables," "\n"
@@ -90,8 +90,8 @@ static char PYIPOPT_PROBLEM_DOC[] =
   "if omitted, please set nnzh to 0 and Ipopt will use approximated hessian" "\n"
   "which will make the convergence slower.";
 
-static char PYIPOPT_LOG_DOC[] = "set_loglevel(level)" "\n\n"
-  "Set the log level of PyIPOPT. All positive integers are allowed. "
+static char IPYOPT_LOG_DOC[] = "set_loglevel(level)" "\n\n"
+  "Set the log level of IPyOpt. All positive integers are allowed. "
   "Messages will be logged if their level is greater or equal than the log level. "
   "However, the log level 0 will turn off logging." "\n"
   "Predefined levels:" "\n"
@@ -166,15 +166,15 @@ typedef struct
   DispatchData data;
   Index n_variables;
   Index m_constraints;
-} PyIpoptProblemObject;
+} IPyOptProblemObject;
 
 // Object Section
 static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords);
 static PyObject *set_intermediate_callback(PyObject *self, PyObject *args);
 static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 static void py_ipopt_problem_dealloc(PyObject *self);
-static int py_ipopt_problem_clear(PyIpoptProblemObject *self);
-static int py_ipopt_problem_traverse(PyIpoptProblemObject *self, visitproc visit, void *arg);
+static int py_ipopt_problem_clear(IPyOptProblemObject *self);
+static int py_ipopt_problem_traverse(IPyOptProblemObject *self, visitproc visit, void *arg);
 
 
 static Bool set_int_option(IpoptProblem nlp, char *key, PyObject *obj)
@@ -262,7 +262,7 @@ static Bool check_no_args(const char* f_name, PyObject *args)
 }
 static PyObject *set(PyObject *self, PyObject *args, PyObject *keywords)
 {
-  IpoptProblem nlp = (IpoptProblem)(((PyIpoptProblemObject*)self)->nlp);
+  IpoptProblem nlp = (IpoptProblem)(((IPyOptProblemObject*)self)->nlp);
 
   if(!check_kwargs(keywords) || !check_no_args("set", args)) return PyErr_Occurred();
   if(!set_options(nlp, keywords))
@@ -274,10 +274,10 @@ static PyObject *set(PyObject *self, PyObject *args, PyObject *keywords)
 
 PyMethodDef problem_methods[] =
   {
-   {"solve", (PyCFunction)solve, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(PYIPOPT_SOLVE_DOC)},
+   {"solve", (PyCFunction)solve, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(IPYOPT_SOLVE_DOC)},
    {"set_intermediate_callback", set_intermediate_callback, METH_VARARGS,
-    PyDoc_STR(PYIPOPT_SET_INTERMEDIATE_CALLBACK_DOC)},
-   {"set", (PyCFunction)set, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(PYIPOPT_SET_OPTION_DOC)},
+    PyDoc_STR(IPYOPT_SET_INTERMEDIATE_CALLBACK_DOC)},
+   {"set", (PyCFunction)set, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(IPYOPT_SET_OPTION_DOC)},
    {NULL, NULL},
   };
 
@@ -294,12 +294,12 @@ static PyObject *problem_getattr(PyObject *self, char *attrname)
  * had to replace PyObject_HEAD_INIT(&PyType_Type) in order to get this to
  * compile on Windows
  */
-PyTypeObject PyIpoptProblemType =
+PyTypeObject IPyOptProblemType =
   {
    PyObject_HEAD_INIT(NULL)
    .ob_size = 0,
-   .tp_name = "pyipopt.Problem",
-   .tp_basicsize = sizeof(PyIpoptProblemObject),
+   .tp_name = "ipyopt.Problem",
+   .tp_basicsize = sizeof(IPyOptProblemObject),
    .tp_itemsize = 0,
    .tp_dealloc = py_ipopt_problem_dealloc,
    .tp_print = 0,
@@ -317,17 +317,17 @@ PyTypeObject PyIpoptProblemType =
    .tp_setattro = 0,
    .tp_as_buffer = 0,
    .tp_flags = Py_TPFLAGS_DEFAULT,
-   .tp_doc = PyDoc_STR(PYIPOPT_PROBLEM_DOC),
+   .tp_doc = PyDoc_STR(IPYOPT_PROBLEM_DOC),
    .tp_new = py_ipopt_problem_new
   };
 
 #else
 
-PyTypeObject PyIpoptProblemType =
+PyTypeObject IPyOptProblemType =
   {
    PyVarObject_HEAD_INIT(NULL, 0)
-   .tp_name = "pyipopt.Problem",
-   .tp_basicsize = sizeof(PyIpoptProblemObject),
+   .tp_name = "ipyopt.Problem",
+   .tp_basicsize = sizeof(IPyOptProblemObject),
    .tp_itemsize = 0,
    .tp_dealloc = (destructor)py_ipopt_problem_dealloc,
    .tp_print = 0,
@@ -345,7 +345,7 @@ PyTypeObject PyIpoptProblemType =
    .tp_setattro = 0,
    .tp_as_buffer = 0,
    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
-   .tp_doc = PyDoc_STR(PYIPOPT_PROBLEM_DOC),
+   .tp_doc = PyDoc_STR(IPYOPT_PROBLEM_DOC),
    .tp_traverse = (traverseproc)py_ipopt_problem_traverse,
    .tp_clear = (inquiry)py_ipopt_problem_clear,
    .tp_richcompare = 0,
@@ -367,7 +367,7 @@ PyTypeObject PyIpoptProblemType =
 #endif
 
 
-static _Bool ipopt_problem_c_init(PyIpoptProblemObject *object,
+static _Bool ipopt_problem_c_init(IPyOptProblemObject *object,
 				  int n, Number *x_L, Number *x_U,
 				  int m, Number *g_L, Number *g_U,
 				  const DispatchData *callback_data)
@@ -466,7 +466,7 @@ static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx)
 
 static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
 {
-  PyIpoptProblemObject *self = NULL;
+  IPyOptProblemObject *self = NULL;
 
   DispatchData callback_data = {
 				.eval_f_python = NULL,
@@ -497,7 +497,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
   PyObject *sparsity_indices_hess = NULL;
   
   // Init the callback_data field
-  if(!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OOO:pyipoptcreate",
+  if(!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OOO:ipyoptcreate",
 		       &n,
 		       &PyArray_Type, &xL,
 		       &PyArray_Type, &xU,
@@ -553,7 +553,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
 
   // create the Ipopt Problem
 
-  self = (PyIpoptProblemObject*)type->tp_alloc(type, 0);
+  self = (IPyOptProblemObject*)type->tp_alloc(type, 0);
   if(!ipopt_problem_c_init(self,
 			   n, x_L, x_U,
 			   m, g_L, g_U,
@@ -582,7 +582,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
 static PyObject *set_intermediate_callback(PyObject *self, PyObject *args)
 {
   PyObject *intermediate_callback;
-  PyIpoptProblemObject *temp = (PyIpoptProblemObject*)self;
+  IPyOptProblemObject *temp = (IPyOptProblemObject*)self;
   IpoptProblem nlp = temp->nlp;
   DispatchData *bigfield = (DispatchData*)&temp->data;
   
@@ -604,7 +604,7 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords)
   int n;
   
   // Return values
-  PyIpoptProblemObject *temp = (PyIpoptProblemObject*)self;
+  IPyOptProblemObject *temp = (IPyOptProblemObject*)self;
   
   IpoptProblem nlp = temp->nlp;
   if(nlp == NULL)
@@ -736,7 +736,7 @@ static Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), co
   PyErr_Format(PyExc_TypeError, "Error while parsing %s.", obj_name);
   return FALSE;
 }
-static int py_ipopt_problem_clear(PyIpoptProblemObject *self)
+static int py_ipopt_problem_clear(IPyOptProblemObject *self)
 {
   DispatchData *dp = &self->data;
   
@@ -750,7 +750,7 @@ static int py_ipopt_problem_clear(PyIpoptProblemObject *self)
 
   return 0;
 }
-static int py_ipopt_problem_traverse(PyIpoptProblemObject *self, visitproc visit, void *arg)
+static int py_ipopt_problem_traverse(IPyOptProblemObject *self, visitproc visit, void *arg)
 {
   DispatchData *dp = &self->data;
   Py_VISIT(dp->eval_f_python);
@@ -764,7 +764,7 @@ static int py_ipopt_problem_traverse(PyIpoptProblemObject *self, visitproc visit
 
 static void py_ipopt_problem_dealloc(PyObject *self)
 {
-  PyIpoptProblemObject *obj = (PyIpoptProblemObject*)self;
+  IPyOptProblemObject *obj = (IPyOptProblemObject*)self;
   DispatchData *dp = &obj->data;
 
   PyObject_GC_UnTrack(self);
@@ -782,7 +782,7 @@ static void py_ipopt_problem_dealloc(PyObject *self)
 // Begin Python Module code section
 static PyMethodDef ipoptMethods[] =
   {
-   {"set_loglevel", set_loglevel, METH_VARARGS, PyDoc_STR(PYIPOPT_LOG_DOC)},
+   {"set_loglevel", set_loglevel, METH_VARARGS, PyDoc_STR(IPYOPT_LOG_DOC)},
    {NULL, NULL}
   };
 
@@ -800,7 +800,7 @@ typedef struct
 static struct PyModuleDef moduledef =					
   {
    PyModuleDef_HEAD_INIT,
-   .m_name = "pyipopt",
+   .m_name = "ipyopt",
    .m_doc = "A hook between Ipopt and Python",
    .m_size = -1,
    .m_methods = ipoptMethods
@@ -817,11 +817,11 @@ static struct PyModuleDef moduledef =
 #define MOD_DEF() Py_InitModule3(moduledef.name, moduledef.methods, moduledef.doc)
 #endif
 
-MOD_INIT(pyipopt)
+MOD_INIT(ipyopt)
 {
   PyObject *module;
   // Finish initialization of the problem type
-  if(PyType_Ready(&PyIpoptProblemType) < 0) 
+  if(PyType_Ready(&IPyOptProblemType) < 0) 
     return MOD_ERROR_VAL;
   
   module = MOD_DEF();
@@ -829,15 +829,15 @@ MOD_INIT(pyipopt)
   if(module == NULL)
     return MOD_ERROR_VAL;
 
-  Py_INCREF(&PyIpoptProblemType);
-  PyModule_AddObject(module, "Problem", (PyObject*)&PyIpoptProblemType);
+  Py_INCREF(&IPyOptProblemType);
+  PyModule_AddObject(module, "Problem", (PyObject*)&IPyOptProblemType);
   
   logger_register_log_levels(module);
   
   // Initialize numpy (a segfault will occur if I use numarray without this)
   import_array();
   if(PyErr_Occurred())
-    Py_FatalError("Unable to initialize module pyipopt");
+    Py_FatalError("Unable to initialize module ipyopt");
   
   return MOD_SUCCESS_VAL(module);
 }

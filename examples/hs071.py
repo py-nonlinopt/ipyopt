@@ -13,7 +13,7 @@ For a complete list of Ipopt options, refer to
 """
 
 from __future__ import print_function
-import pyipopt
+import ipyopt
 from numpy import ones, float_, array, zeros
 
 __author__ = "Eric Xu. Washington University"
@@ -100,9 +100,9 @@ def apply_new(_x):
     return True
 
 
-pyipopt.set_loglevel(pyipopt.LOGGING_DEBUG)
-nlp = pyipopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                      eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g)
+ipyopt.set_loglevel(ipyopt.LOGGING_DEBUG)
+nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
+                     eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g)
 
 x0 = array([1.0, 5.0, 5.0, 1.0])
 pi0 = array([1.0, 1.0])

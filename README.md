@@ -1,15 +1,16 @@
-# PyIpopt
+# IPyOpt
 
-PyIpopt is a python module that allows you to use
+IPyOpt is a python module that allows you to use
 [Ipopt](http://www.coin-or.org/Ipopt/) in Python.
 It was developed by Eric Xu when he was a PhD student at [Washington
 University](https://wustl.edu/) and issued under the BSD license.
+Original repository: [xuy/pyipopt](https://github.com/xuy/pyipopt).
 
 ## Installation
 
 ### Dependencies
 
-PyIpopt depends on the following packages:
+IPyOpt depends on the following packages:
 
 1. A compiler and a linker, e.g. gcc, ld
 2. [Ipopt](https://projects.coin-or.org/Ipopt)
@@ -22,7 +23,7 @@ PyIpopt depends on the following packages:
 First, get the latest source code using:
 
 ```sh
-$ git clone http://github.com/g-braeunlich/pyipopt.git
+$ git clone http://github.com/g-braeunlich/IPyOpt.git
 ```
 
 Check whether a file `ipopt.pc` was distributed with your Ipopt installation.
@@ -63,44 +64,44 @@ $ sudo python setup.py install
 
 ## Usage
 
-You can use PyIpopt like this:
+You can use IPyOpt like this:
 
 ```python
-import pyipopt
+import ipyopt
 # define your call back functions
-nlp = pyipopt.Problem(...)
+nlp = ipyopt.Problem(...)
 nlp.solve(...)
 ```
 
-You can also check out `examples/hs071.py` to see how to use PyIpopt.
+You can also check out `examples/hs071.py` to see how to use IPyOpt.
 
-PyIpopt as a module comes with docstring. You can poke around 
+IPyOpt as a module comes with docstring. You can poke around 
 it by using Python's `help()` command.
 
 ## Testing
 
 I have included an example 
 
-To see if you have PyIpopt ready, use the following command under the
-pyipopt's directory. 
+To see if you have IPyOpt ready, use the following command under the
+`examples`'s directory. 
 
 ```sh
 $ python hs071.py
 ```
 	
 The file `hs071.py` contains a toy optimization problem. If everything
-is OK, pyipopt will invoke Ipopt to solve it for you. This python file
+is OK, IPyOpt will invoke Ipopt to solve it for you. This python file
 is self-documented and can be used as a template for writing your own
 optimization problems. 
 
-Pyipopt is a legitimate Python module, you can inspect it by using
+IPyOpt is a legitimate Python module, you can inspect it by using
 standard Python commands like `dir` or `help`. All functions in
-pyipopt are documented in details.
+IPyOpt are documented in details.
 
 **Hessian Estimation**: since Hessian estimation is usually tedious,
-Ipopt can solve problems without Hessian estimation. Pyipopt also
+Ipopt can solve problems without Hessian estimation. IPyOpt also
 supports this feature. The file `hs071.py` demonstrates the idea. If
-you provide the `pyipopt.Problem` constructor with an `eval_h` callback
+you provide the `ipyopt.Problem` constructor with an `eval_h` callback
 function as well as the `apply_new` callback function, Ipopt will
 delegate the Hessian matrix calculation to your function (otherwise
 Ipopt will approximate Hessian for you).
@@ -108,9 +109,9 @@ Ipopt will approximate Hessian for you).
 ## Contributing
 
 1. Fork it.
-2. Create a branch (`git checkout -b my_pyipopt`)
+2. Create a branch (`git checkout -b new_branch`)
 3. Commit your changes (`git commit -am "your awesome message"`)
-4. Push to the branch (`git push origin my_pyipopt`)
+4. Push to the branch (`git push origin new_branch`)
 5. Create a pull request
 6. Nag me about it if I am lazy.
 
@@ -118,7 +119,7 @@ Ipopt will approximate Hessian for you).
 
 ### Check Ipopt
 
-PyIpopt links to Ipopt's C library. If that library is not available PyIpopt will fail
+IPyOpt links to Ipopt's C library. If that library is not available IPyOpt will fail
 during module initialization. To check the availability of this library, you can go to
 `$IPOPT_DIR/Ipopt/examples/hs071_c/`
 and issue `make` to ensure you can compile and run the toy example supplied by Ipopt. 
@@ -127,7 +128,7 @@ and issue `make` to ensure you can compile and run the toy example supplied by I
 
 * Error:
   ```python
-  import pyipopt
+  import ipyopt
   ```
   ```
   ImportError: can not find  libipopt.so.0
@@ -138,7 +139,7 @@ and issue `make` to ensure you can compile and run the toy example supplied by I
 
 * Error:
   ```python
-  import pyipopt
+  import ipyopt
   ```
   ```
   ImportError: /usr/lib/libipopt.so.0: undefined symbol: _gfortran_XXX
@@ -150,7 +151,7 @@ and issue `make` to ensure you can compile and run the toy example supplied by I
 
 * Error:
   ```python
-  import pyipopt
+  import ipyopt
   ```
   ```
   ImportError: /usr/lib/libipopt.so.0: undefined symbol: SetIntermediateCallback
@@ -163,7 +164,7 @@ and issue `make` to ensure you can compile and run the toy example supplied by I
 
 * Error:
   ```python
-  import pyipopt
+  import ipyopt
   ```
   ```
   ImportError: /usr/lib/libipopt.so.0: undefined symbol: ma19ad_
@@ -177,21 +178,21 @@ and issue `make` to ensure you can compile and run the toy example supplied by I
   to see if it is marked with U. It should. This means that
   `libipopt.so.0` is not aware of `libcoinhsl.so.0`. You can fix this by
   adding `-lcoinhsl` to the `CFLAGS` variable (see section install). It seems to me that
-  this happens in the recent versions of ipopt. Eventually pyipopt
+  this happens in the recent versions of ipopt. Eventually IPyOpt
   will have a better building mechanism, and I will fix this soon. 
 
 * Error:
   ```python
-  import pyipopt
+  import ipyopt
   ```
   ```
   ImportError: /usr/lib/libipopt.so.0: undefined symbol: SomeKindOfSymbol
   ```
 	
 * Solution:
-  I can assure you that it is NOT a bug of pyipopt. It is very
+  I can assure you that it is NOT a bug of IPyOpt. It is very
   likely that you did not link the right package when compiling
-  pyipopt. 
+  IPyOpt. 
 	
   First, use 
   ```sh
@@ -203,10 +204,10 @@ and issue `make` to ensure you can compile and run the toy example supplied by I
   Ipopt is built using various third-party libraries. Different
   machines may have different set of libraries. You should 
   try to locate these dependencies and indicate them when compiling
-  pyipopt. This is just a limitation of dynamic linking libraries
-  and is not related to Pyipopt. Please do not report a missing symbol
+  IPyOpt. This is just a limitation of dynamic linking libraries
+  and is not related to IPyOpt. Please do not report a missing symbol
   error as a "bug" to me unless you are 100% sure it is the problem
-  of pyipopt.
+  of IPyOpt.
 	
 
 ## Contact

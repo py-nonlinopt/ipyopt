@@ -1,6 +1,6 @@
 # When I installed Ipopt from source, I used the
 # --prefix=/usr/local
-# option, so this is where I want pyipopt to look for my ipopt installation.
+# option, so this is where I want ipyopt to look for my ipopt installation.
 # I only installed from source because the ipopt packaging
 # for my linux distribution was buggy,
 # so by the time you read this the bugs have probably been fixed
