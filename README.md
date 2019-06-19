@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/143015117.svg)](https://zenodo.org/badge/latestdoi/143015117)
+
 # IPyOpt
 
 IPyOpt is a python module that allows you to use
