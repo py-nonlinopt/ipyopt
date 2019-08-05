@@ -52,6 +52,7 @@ setup(
     version="0.9.0.post1",
     description="An IPOpt connector for Python",
     long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
     author="Gerhard Bräunlich",
     author_email="g.braeunlich@disroot.org",
     url=url,
