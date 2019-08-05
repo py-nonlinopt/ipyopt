@@ -58,5 +58,4 @@ setup(
     url=url,
     ext_modules=LazyList(load_extensions()),
     install_requires=["numpy"],
-    setup_requires=['numpy']
 )
