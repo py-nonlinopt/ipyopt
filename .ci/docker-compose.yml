@@ -1,0 +1,6 @@
+version: '3.7'
+services:
+  ipopt-dev:
+    image: $REGISTRY/ipopt-dev
+    build:
+      context: ./

@@ -1,0 +1,32 @@
+image: "${CI_REGISTRY_IMAGE}/ipopt-dev:latest"
+# Image is built by: docker build -t "${CI_REGISTRY_IMAGE}/ipopt-dev" .ci
+# Pushed to the registry by: docker push "${CI_REGISTRY_IMAGE}/ipopt-dev"
+
+cache:
+  paths:
+    - build
+    - dist
+
+build:
+  stage: build
+  script:
+    ./setup.py install
+
+test-examples:
+  stage: test
+  before_script:
+    - apt-get -qq update && apt-get install -y python3-scipy
+    - ./setup.py install
+  script:
+    - for script in examples/* ; do python3 "$script" || exit 1 ; done
+
+pypi:
+  stage: deploy
+  variables:
+    TWINE_USERNAME: $PYPI_USERNAME
+    TWINE_PASSWORD: $PYPI_PASSWORD
+  script:
+    - ./setup.py sdist bdist_wheel
+    - twine upload --repository-url $PYPI_REPOSITORY_URL dist/*
+  only:
+    - tags
