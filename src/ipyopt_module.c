@@ -69,26 +69,41 @@ static char IPYOPT_SET_OPTION_DOC[] =
 
 static char IPYOPT_PROBLEM_DOC[] =
   "IPOpt problem type in python" "\n\n"
-  "Problem(n, xl, xu, m, gl, gu, nnzj, nnzh, eval_f, eval_grad_f, eval_g, eval_jac_g) -> Problem" "\n\n"
-  "n is the number of variables," "\n"
-  "xl is the lower bound of x as bounded constraints" "\n"
-  "xu is the upper bound of x as bounded constraints" "\n"
-  "\t" "both xl, xu should be one dimension arrays with length n" "\n\n"
-  "m is the number of constraints," "\n"
-  "gl is the lower bound of constraints" "\n"
-  "gu is the upper bound of constraints" "\n"
-  "\t" "both gl, gu should be one dimension arrays with length m" "\n"
-  "nnzj is the number of nonzeros in Jacobi matrix" "\n"
-  "nnzh is the number of non-zeros in Hessian matrix, you can set it to 0" "\n\n"
-  "eval_f is the call back function to calculate objective value," "\n"
-  "it takes one single argument x as input vector" "\n"
-  "eval_grad_f calculates gradient for objective function" "\n"
-  "eval_g calculates the constraint values and return an array" "\n"
-  "eval_jac_g calculates the Jacobi matrix. It takes an argument x" "\n"
-  "and returns the values of the Jacobi matrix with length nnzj" "\n"
-  "eval_h calculates the hessian matrix, it's optional." "\n"
-  "if omitted, please set nnzh to 0 and Ipopt will use approximated hessian" "\n"
-  "which will make the convergence slower.";
+  "Problem(n, xL, xU, m, gL, gU, sparsity_indices_jac_g, sparsity_indices_hess, eval_f, eval_grad_f, eval_g, eval_jac_g, eval_h, applynew, ipopt_options) -> Problem" "\n\n"
+  "n -- Number of variables (dimension of x)," "\n"
+  "xL -- Lower bound of x as bounded constraints" "\n"
+  "xU -- Upper bound of x as bounded constraints" "\n"
+  "\t" "both xL, xU should be one 1-dim arrays with length n" "\n\n"
+  "m -- Number of constraints," "\n"
+  "gL -- Lower bound of constraints" "\n"
+  "gU -- Upper bound of constraints" "\n"
+  "\t" "both gL, gU should be one dimension arrays with length m" "\n"
+  "sparsity_indices_jac_g -- Positions of non-zero entries of jac_g in the form of a tuple of two sequences of the same length (first list are column indices, second column are row indices)" "\n"
+  "sparsity_indices_hess -- Positions of non-zero entries of hess" "\n"
+  "eval_f -- Callback function to calculate objective value." "\n"
+  "\t" "Signature: `eval_f(x: numpy.array) -> float`," "\n"
+  "eval_grad_f -- calculates gradient for objective function." "\n"
+  "\t" "Signature: `eval_grad_f(x: numpy.array, out: numpy.array) -> Any`. " "\n"
+  "\t" "The array `out` must be a 1-dim array matching the length of `x`, i.e. `n`." "\n"
+  "\t" "A possible return value will be ignored." "\n"
+  "eval_g -- calculates the constraint values and return an array" "\n"
+  "\t" "Signature: `eval_g(x: numpy.array, out: numpy.array) -> Any`." "\n"
+  "\t" "The array `out` must be a 1-dim array of length `m`." "\n"
+  "\t" "A possible return value will be ignored." "\n"
+  "eval_jac_g -- calculates the Jacobi matrix." "\n"
+  "\t" "Signature: `eval_jac_g(x: numpy.array, out: numpy.array) -> Any`. The array `out` must be a 1-dim array whose entries are the entries of the Jacobi matrix jac_g listed in `sparsity_indices_jac_g` (order matters)." "\n"
+  "\t" "A possible return value will be ignored." "\n"
+  "eval_h -- calculates the hessian matrix (optional)." "\n"
+  "\t" "Signature: `eval_h(x: numpy.array, lagrange: numpy.array, obj_factor: numpy.array, out: numpy.array) -> Any`." "\n"
+  "\t" "The array `out` must be a 1-dim array and contain the entries of" "\n"
+  "\t" "`obj_factor * Hess(f) + lagrange[i] * Hess(g[i])` (sum over `i`)," "\n"
+  "\t" "listed in `sparsity_indices_hess` for given `obj_factor: float`" "\n"
+  "\t" "and `lagrange: numpy.array` of shape (m,)." "\n"
+  "\t" "A possible return value will be ignored." "\n"
+  "\t" "If omitted, the parameter sparsity_indices_hess will be ignored and Ipopt will use approximated hessian" "\n"
+  "\t" "which will make the convergence slower." "\n"
+  "applynew -- Callback with signature `cb(x: numpy.array) -> None` which is called whenever one of the functions eval_f, eval_grad_f, eval_jac_g or eval_h is called with an argument `x` differing from the previous call. This can be used for logging." "\n"
+  "ipopt_options -- A dict of key value pairs, to be passed to IPOpt (see ipopt --print-options or the IPOpt manual)";
 
 static char IPYOPT_LOG_DOC[] = "set_loglevel(level)" "\n\n"
   "Set the log level of IPyOpt. All positive integers are allowed. "
@@ -495,25 +510,26 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
   
   PyObject *sparsity_indices_jac_g = NULL;
   PyObject *sparsity_indices_hess = NULL;
+  PyObject *ipopt_options = NULL;
   
-  // Init the callback_data field
-  if(!PyArg_ParseTuple(args, "iO!O!iO!O!OOOOOO|OOO:ipyoptcreate",
-		       &n,
-		       &PyArray_Type, &xL,
-		       &PyArray_Type, &xU,
-		       &m,
-		       &PyArray_Type, &gL,
-		       &PyArray_Type, &gU,
-		       &sparsity_indices_jac_g,
-		       &sparsity_indices_hess,
-		       &callback_data.eval_f_python,
-		       &callback_data.eval_grad_f_python,
-		       &callback_data.eval_g_python,
-		       &callback_data.eval_jac_g_python,
-		       &callback_data.eval_h_python,
-		       &callback_data.apply_new_python)
+  if(!PyArg_ParseTupleAndKeywords(args, keywords, "iO!O!iO!O!OOOOOO|OOO:ipyopt.Problem",
+				  (char*[]){"n", "xL", "xU", "m", "gL", "gU", "sparsity_indices_jac_g", "sparsity_indices_hess", "eval_f", "eval_grad_f", "eval_g", "eval_jac_g", "eval_h", "applynew", "ipopt_options", NULL},
+                                  &n,
+                                  &PyArray_Type, &xL,
+                                  &PyArray_Type, &xU,
+                                  &m,
+                                  &PyArray_Type, &gL,
+                                  &PyArray_Type, &gU,
+                                  &sparsity_indices_jac_g,
+                                  &sparsity_indices_hess,
+                                  &callback_data.eval_f_python,
+                                  &callback_data.eval_grad_f_python,
+                                  &callback_data.eval_g_python,
+                                  &callback_data.eval_jac_g_python,
+                                  &callback_data.eval_h_python,
+                                  &callback_data.apply_new_python,
+                                  &ipopt_options)
      || !parse_sparsity_indices(sparsity_indices_jac_g, &callback_data.sparsity_indices_jac_g)
-     || !check_kwargs(keywords)
      || !check_callback(callback_data.eval_f_python, "eval_f")
      || !check_callback(callback_data.eval_grad_f_python, "eval_grad_f")
      || !check_callback(callback_data.eval_g_python, "eval_g")
@@ -529,7 +545,8 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
      || !array_copy_data(xU, &x_U)
      || !array_copy_data(gL, &g_L)
      || !array_copy_data(gU, &g_U)
-     || !(callback_data.eval_h_python == NULL || (check_callback(callback_data.eval_h_python, "h") && parse_sparsity_indices(sparsity_indices_hess, &callback_data.sparsity_indices_hess))) 
+     || !(callback_data.eval_h_python == NULL || (check_callback(callback_data.eval_h_python, "h") && parse_sparsity_indices(sparsity_indices_hess, &callback_data.sparsity_indices_hess)))
+     || !check_kwargs(ipopt_options)
      )
     {
       SAFE_FREE(x_L);
@@ -570,11 +587,13 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
       sparsity_indices_free(&callback_data.sparsity_indices_jac_g);
       sparsity_indices_free(&callback_data.sparsity_indices_hess);
     }
-  if(!set_options(self->nlp, keywords))
+  if(!set_options(self->nlp, ipopt_options))
     {
       Py_XDECREF(self);
       return NULL;
     }
+  if(ipopt_options != NULL)
+    Py_XDECREF(ipopt_options);
   logger(LOG_FULL, "Problem created");
   return (PyObject*)self;
 }
