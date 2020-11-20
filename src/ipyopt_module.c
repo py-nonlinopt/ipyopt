@@ -286,6 +286,33 @@ static PyObject *set(PyObject *self, PyObject *args, PyObject *keywords)
   return Py_None;
 }
 
+static char IPYOPT_SET_PROBLEM_SCALING_DOC[] =
+  "set_problem_scaling(obj_scaling, x_scaling, g_scaling)" "\n\n"
+  "Set scaling parameter for the NLP." " "
+  "Only takes effect if `nlp_scaling_method=\"user-scaling\"` is set via `Problem.set` or `ipopt_options`!" " "
+  "If x_scaling or g_scaling is not specified or explicitly are None, then no scaling for x resp. g is done. "
+  "This function does not check if the dimensions for x_scaling, g_scaling match the NLP." "\n\n"
+  "This corresponds to the TNLP::get_scaling_parameters method. "
+;
+static PyObject *set_problem_scaling(PyObject *self, PyObject *args, PyObject *keywords)
+{
+  IpoptProblem nlp = (IpoptProblem)(((IPyOptProblemObject*)self)->nlp);
+  double obj_scaling;
+  PyArrayObject *x_scaling = NULL;
+  PyArrayObject *g_scaling = NULL;
+  if(!PyArg_ParseTupleAndKeywords(args, keywords, "d|O!O!:ipyopt.Problem.set_problem_scaling",
+				  (char*[]){"obj_scaling", "x_scaling", "g_scaling", NULL},
+                                  &obj_scaling,
+                                  &PyArray_Type, &x_scaling,
+                                  &PyArray_Type, &g_scaling))
+    return NULL;
+  Bool result = SetIpoptProblemScaling(nlp, obj_scaling,
+                                       (x_scaling == NULL)?NULL:PyArray_DATA(x_scaling),
+                                       (g_scaling == NULL)?NULL:PyArray_DATA(g_scaling));
+  if(result) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
+
 
 PyMethodDef problem_methods[] =
   {
@@ -293,6 +320,7 @@ PyMethodDef problem_methods[] =
    {"set_intermediate_callback", set_intermediate_callback, METH_VARARGS,
     PyDoc_STR(IPYOPT_SET_INTERMEDIATE_CALLBACK_DOC)},
    {"set", (PyCFunction)set, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(IPYOPT_SET_OPTION_DOC)},
+   {"set_problem_scaling", (PyCFunction)set_problem_scaling, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(IPYOPT_SET_PROBLEM_SCALING_DOC)},
    {NULL, NULL},
   };
 
