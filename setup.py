@@ -51,7 +51,7 @@ url = "https://github.com/g-braeunlich/ipyopt"
 
 setup(
     name="ipyopt",
-    version="0.9.2",
+    version="0.10.0",
     description="An IPOpt connector for Python",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
