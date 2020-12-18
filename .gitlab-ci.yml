@@ -2,15 +2,11 @@ image: "${CI_REGISTRY_IMAGE}/ipopt-dev:latest"
 # Image is built by: docker build -t "${CI_REGISTRY_IMAGE}/ipopt-dev" .ci
 # Pushed to the registry by: docker push "${CI_REGISTRY_IMAGE}/ipopt-dev"
 
-cache:
-  paths:
-    - build
-    - dist
-
 build:
   stage: build
   image: "${CI_REGISTRY_IMAGE}/ipopt-dev:latest"
   script:
+    - sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
     - /opt/python/cp38-cp38/bin/pip install .
     - /opt/python/cp38-cp38/bin/python setup.py sdist
     - >

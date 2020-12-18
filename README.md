@@ -16,7 +16,15 @@ Original repository: [xuy/pyipopt](https://github.com/xuy/pyipopt).
 pip install [--user] ipyopt
 ```
 
-You also need [Ipopt](https://github.com/coin-or/Ipopt) and
+This will install a precompiled binary version from pypi. Please note,
+that the precompiled binary is linked against the unoptimized
+reference implementation of blas/lapack. If you want to take advantage
+of optimized versions of blas/lapack, compile from source:
+
+```bash
+pip install --no-binary ipyopt ipyopt
+```
+In this case, you also need [Ipopt](https://github.com/coin-or/Ipopt) and
 [Numpy](https://numpy.org/).
 On a debian based system:
 
@@ -27,7 +35,7 @@ sudo apt-get install python3-numpy coinor-ipopt
 If `coinor-ipopt` does not link correctly, you might have to compile
 `ipopt` yourself.
 See the section [Build](#build) below or [.ci/Dockerfile](.ci/Dockerfile) on
-how this can be done on debian.
+how this can be done.
 
 ## Usage
 
