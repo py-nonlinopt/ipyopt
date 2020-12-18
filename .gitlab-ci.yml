@@ -9,24 +9,39 @@ cache:
 
 build:
   stage: build
+  image: "${CI_REGISTRY_IMAGE}/ipopt-dev:latest"
   script:
-    ./setup.py install
-
+    - /opt/python/cp38-cp38/bin/pip install .
+    - /opt/python/cp38-cp38/bin/python setup.py sdist
+    - >
+      for py in /opt/python/cp3* ; do \
+        "$py"/bin/pip wheel . -w dist ; \
+      done
+    - >
+      for wheel in dist/ipyopt-*.whl ; do \
+        auditwheel repair "$wheel" -w dist ; \
+      done
+  artifacts:
+    name: wheel
+    paths:
+      - dist/ipyopt-*manylinux*.whl
+      - dist/ipyopt-*.tar.gz
 test-examples:
   stage: test
   before_script:
-    - apt-get -qq update && apt-get install -y python3-scipy
-    - ./setup.py install
+    - /opt/python/cp38-cp38/bin/pip install scipy .
   script:
-    - for script in examples/* ; do python3 "$script" || exit 1 ; done
+    - for script in examples/* ; do /opt/python/cp38-cp38/bin/python "$script" || exit 1 ; done
 
 pypi:
   stage: deploy
+  image: python:3.8
   variables:
     TWINE_USERNAME: $PYPI_USERNAME
     TWINE_PASSWORD: $PYPI_PASSWORD
+  before_script:
+    - pip install twine
   script:
-    - ./setup.py sdist bdist_wheel
     - twine upload --repository-url $PYPI_REPOSITORY_URL dist/*
   only:
     - tags
