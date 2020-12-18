@@ -7,10 +7,7 @@ Further modification by random internet people.
 """
 
 import warnings
-try:
-    from setuptools import setup, Extension
-except ImportError:
-    raise RuntimeError('setuptools is required')
+from setuptools import setup, Extension
 
 from setup_helpers import LazyList
 

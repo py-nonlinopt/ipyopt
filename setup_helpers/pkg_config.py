@@ -10,12 +10,13 @@ def pkg_config(*packages, **kwargs):
                 b'-L': 'library_dirs',
                 b'-l': 'libraries',
                 b'-D': 'define_macros'}
-    res = subprocess.run(
-        ("pkg-config", "--libs", "--cflags")
-        + packages, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-    if res.stderr:
-        raise RuntimeError(res.stderr.decode())
+    try:
+        res = subprocess.run(
+            ("pkg-config", "--libs", "--cflags")
+            + packages, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(e.stderr.decode()) from e
     for token in res.stdout.split():
         kwargs.setdefault(flag_map.get(token[:2]), []).append(
             token[2:].decode())
