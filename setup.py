@@ -23,7 +23,7 @@ def main():
         ext_modules=[
             Extension("ipyopt",
                       sources=["src/callback.c",
-                               "src/ipyopt_module.c", "src/logger.c"],
+                               "src/ipyopt_module.c"],
                       **get_compiler_flags())],
         install_requires=["numpy"],
     )

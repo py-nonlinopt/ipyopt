@@ -12,9 +12,8 @@ For a complete list of Ipopt options, refer to
     http://www.coin-or.org/Ipopt/documentation/node59.html
 """
 
-from __future__ import print_function
-import ipyopt
 from numpy import ones, float_, array, zeros
+import ipyopt
 
 __author__ = "Eric Xu. Washington University"
 
@@ -100,12 +99,10 @@ def apply_new(_x):
     return True
 
 
-ipyopt.set_loglevel(ipyopt.LOGGING_DEBUG)
 nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
                      eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g)
 
 x0 = array([1.0, 5.0, 5.0, 1.0])
-pi0 = array([1.0, 1.0])
 
 print("Going to call solve")
 print("x0 = {}".format(x0))

@@ -61,9 +61,6 @@ def apply_new(_X):
 
 def main():
 
-    # verbose
-    ipyopt.set_loglevel(ipyopt.LOGGING_DEBUG)
-
     # define the parameters and their box constraints
     nvar = 2
     x_L = numpy.array([-3, -3], dtype=float)

@@ -106,8 +106,6 @@ def apply_new(_x):
     return True
 
 
-ipyopt.set_loglevel(ipyopt.LOGGING_DEBUG)
-
 nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
                      eval_h.sparsity_indices,
                      eval_f, eval_grad_f, eval_g, eval_jac_g)

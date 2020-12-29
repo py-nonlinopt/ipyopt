@@ -33,7 +33,6 @@
 #include "numpy/arrayobject.h"
 
 #include "callback.h"
-#include "logger.h"
 
 #ifndef SAFE_FREE
 #define SAFE_FREE(p) {if(p) {free(p); (p)= NULL;}}
@@ -104,16 +103,6 @@ static char IPYOPT_PROBLEM_DOC[] =
   "\t" "which will make the convergence slower." "\n"
   "applynew -- Callback with signature `cb(x: numpy.array) -> None` which is called whenever one of the functions eval_f, eval_grad_f, eval_jac_g or eval_h is called with an argument `x` differing from the previous call. This can be used for logging." "\n"
   "ipopt_options -- A dict of key value pairs, to be passed to IPOpt (see ipopt --print-options or the IPOpt manual)";
-
-static char IPYOPT_LOG_DOC[] = "set_loglevel(level)" "\n\n"
-  "Set the log level of IPyOpt. All positive integers are allowed. "
-  "Messages will be logged if their level is greater or equal than the log level. "
-  "However, the log level 0 will turn off logging." "\n"
-  "Predefined levels:" "\n"
-  "LOGGING_OFF: 0" "\n"
-  "LOGGING_INFO: 10" "\n"
-  "LOGGING_DEBUG: 10";
-
 
 static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args);
 static Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
@@ -435,15 +424,6 @@ static _Bool ipopt_problem_c_init(IPyOptProblemObject *object,
   return TRUE;
 }
 
-static PyObject *set_loglevel(PyObject *obj, PyObject *args)
-{
-  int l;
-  if(!PyArg_ParseTuple(args, "i", &l) || !logger_set_loglevel(l))
-    return NULL;
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static void sparsity_indices_allocate(SparsityIndices *idx, unsigned int n)
 {
   idx->row = malloc(n*sizeof(Index));
@@ -584,8 +564,6 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
       sparsity_indices_free(&callback_data.sparsity_indices_hess);
       return NULL;
     }
-  if(callback_data.eval_h_python == NULL)
-    logger(LOG_INFO, "Ipopt will use Hessian approximation.\n");
   
   // Grab the callback selfs because we want to use them later.
   Py_XINCREF(callback_data.eval_f_python);
@@ -621,7 +599,6 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
     }
   if(ipopt_options != NULL)
     Py_XDECREF(ipopt_options);
-  logger(LOG_FULL, "Problem created");
   return (PyObject*)self;
 }
 
@@ -822,13 +799,11 @@ static void py_ipopt_problem_dealloc(PyObject *self)
   FreeIpoptProblem(obj->nlp);
   
   Py_TYPE(self)->tp_free(self);
-  logger(LOG_FULL, "Problem deallocated");
 }
 
 // Begin Python Module code section
 static PyMethodDef ipoptMethods[] =
   {
-   {"set_loglevel", set_loglevel, METH_VARARGS, PyDoc_STR(IPYOPT_LOG_DOC)},
    {NULL, NULL}
   };
 
@@ -877,8 +852,6 @@ MOD_INIT(ipyopt)
 
   Py_INCREF(&IPyOptProblemType);
   PyModule_AddObject(module, "Problem", (PyObject*)&IPyOptProblemType);
-  
-  logger_register_log_levels(module);
   
   // Initialize numpy (a segfault will occur if I use numarray without this)
   import_array();
