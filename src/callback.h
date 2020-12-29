@@ -55,29 +55,27 @@ Bool eval_h(Index n, Number * x, Bool new_x, Number obj_factor,
 	    Index nele_hess, Index * iRow, Index * jCol,
 	    Number * values, UserDataPtr user_data);
 
-Bool eval_intermediate_callback(Index alg_mod,
-				Index iter_count, Number obj_value,
-				Number inf_pr, Number inf_du,
-				Number mu, Number d_norm,
-				Number regularization_size,
-				Number alpha_du, Number alpha_pr,
-				Index ls_trials, UserDataPtr data);
+Bool intermediate_callback(Index alg_mod,
+                           Index iter_count, Number obj_value,
+                           Number inf_pr, Number inf_du,
+                           Number mu, Number d_norm,
+                           Number regularization_size,
+                           Number alpha_du, Number alpha_pr,
+                           Index ls_trials, UserDataPtr data);
 
-typedef struct
-{
+typedef struct {
   unsigned int n;
   Index *row, *col;
 } SparsityIndices;
 
-typedef struct
-{
-  PyObject *eval_f_python;
-  PyObject *eval_grad_f_python;
-  PyObject *eval_g_python;
-  PyObject *eval_jac_g_python;
-  PyObject *eval_h_python;
-  PyObject *apply_new_python;
-  PyObject *eval_intermediate_callback_python;
+typedef struct {
+  PyObject *py_eval_f;
+  PyObject *py_eval_grad_f;
+  PyObject *py_eval_g;
+  PyObject *py_eval_jac_g;
+  PyObject *py_eval_h;
+  PyObject *py_apply_new;
+  PyObject *py_intermediate_callback;
   unsigned int n_callback_args;
   PyObject **callback_args;
   PyObject *callback_kwargs;
