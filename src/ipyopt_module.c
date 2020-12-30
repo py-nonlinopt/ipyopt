@@ -43,7 +43,7 @@ static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx);
 static void sparsity_indices_free(SparsityIndices* idx);
 static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args);
 static Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
-static Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
+static Bool check_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
 static Bool check_callback(PyObject *callback, const char *name);
 static Bool _PyArray_Check(const PyObject* obj) { return PyArray_Check(obj); } // Macro -> function
 static Bool _PyLong_Check(const PyObject* obj) { return PyLong_Check(obj); } // Macro -> function
@@ -256,8 +256,8 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
 				  &PyArray_Type, &mL, // mult_x_L
 				  &PyArray_Type, &mU) // mult_x_Y
      || !check_type((PyObject*)x0, &_PyArray_Check, "x0", "numpy.ndarray")
-     || !check_type_optional(callback_kwargs, &check_kwargs, "callback_kwargs", "dict")
-     || !check_type_optional(callback_args, &check_args, "callback_args", "tuple")
+     || !check_optional(callback_kwargs, &check_kwargs, "callback_kwargs", "dict")
+     || !check_optional(callback_args, &check_args, "callback_args", "tuple")
      || !check_array_dim(x0, n, "x0")
      || (mL && !check_array_dim(mL, n, "mL"))
      || (mU && !check_array_dim(mU, n, "mU"))
@@ -732,14 +732,14 @@ static Bool check_kwargs(const PyObject *kwargs) {
   PyErr_Format(PyExc_RuntimeError, "C-API-Level Error: keywords are not of type dict");
   return FALSE;
 }
-static Bool check_type_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name) {
-  if(obj == NULL || checker(obj))
+static Bool check_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name) {
+  if(obj == NULL || obj == Py_None || checker(obj))
     return TRUE;
   PyErr_Format(PyExc_TypeError, "Wrong type for %s. Required: %s", obj_name, type_name);
   return FALSE;
 }
 static Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name) {
-  if(obj != NULL && check_type_optional(obj, checker, obj_name, type_name))
+  if(obj != NULL && check_optional(obj, checker, obj_name, type_name))
     return TRUE;
   PyErr_Format(PyExc_TypeError, "Error while parsing %s.", obj_name);
   return FALSE;
