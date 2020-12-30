@@ -175,7 +175,7 @@ static Bool check_no_args(const char* f_name, PyObject *args) {
 }
 
 static char IPYOPT_SET_OPTION_DOC[] =
-  "set([key1=val1, ...])" "\n\n"
+  "set(**kwargs)" "\n\n"
   "Set one or more Ipopt options. The python type of the value objects have to match "
   "the corresponding types (i.e. str, float or int) of the IPOpt options. "
   "Refer to the Ipopt" "\n"
@@ -193,7 +193,8 @@ static PyObject *set(PyObject *self, PyObject *args, PyObject *keywords) {
 }
 
 static char IPYOPT_SET_PROBLEM_SCALING_DOC[] =
-  "set_problem_scaling(obj_scaling, x_scaling, g_scaling)" "\n\n"
+  "set_problem_scaling(obj_scaling: float, x_scaling: Optional[numpy.ndarray] = None, g_scaling: Optional[numpy.ndarray] = None)"
+  "\n\n"
   "Set scaling parameters for the NLP." "\n"
   "Attention: Only takes effect if `nlp_scaling_method=\"user-scaling\"` is set via `Problem.set` or `ipopt_options`!" " "
   "If x_scaling or g_scaling is not specified or explicitly are None, then no scaling for x resp. g is done. "
@@ -218,11 +219,11 @@ static PyObject *set_problem_scaling(PyObject *self, PyObject *args, PyObject *k
   Py_RETURN_FALSE;
 }
 
-static char IPYOPT_SOLVE_DOC[] = "solve(x, [mult_g, mult_x_L, mult_x_U]) -> (x, obj, status)"
+static char IPYOPT_SOLVE_DOC[] = "solve(x: numpy.ndarray[numpy.float64], *, mult_g: Optional[numpy.ndarray[numpy.float64]] = None, mult_x_L: Optional[numpy.ndarray[numpy.float64]] = None, mult_x_U: Optional[numpy.ndarray[numpy.float64]] = None) -> Tuple[numpy.ndarray[numpy.float64], float, int]"
   "\n\n"
   "Call Ipopt to solve problem created before and return" "\n"
-  "a tuple that contains final solution x, final objective function obj," "\n"
-  "and the return status of ipopt." "\n\n"
+  "a tuple containing the final solution x, the value of the final objective function" "\n"
+  "and the return status code of ipopt." "\n\n"
   "mult_g, mult_x_L, mult_x_U are optional keyword only arguments" "\n"
   "allowing previous values of bound multipliers to be passed in warm" "\n"
   "start applications."
@@ -373,7 +374,7 @@ static _Bool ipopt_problem_c_init(IPyOptProblemObject *object,
 
 static char IPYOPT_PROBLEM_DOC[] =
   "IPOpt problem type in python" "\n\n"
-  "Problem(n: int, xL: numpy.ndarray[numpy.float64], xU: numpy.ndarray[numpy.float64], m: int, gL: numpy.ndarray[numpy.float64], gU: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: Tuple[List[float], List[float]], sparsity_indices_hess: Tuple[List[float], List[float]], eval_f: function, eval_grad_f: function, eval_g: function, eval_jac_g: function, eval_h: Optional[function] = None, applynew: Optional[function] = None, ipopt_options: Optional[Dict[str, Union[int, float, str]]] = None) -> Problem" "\n\n"
+  "Problem(n: int, xL: numpy.ndarray[numpy.float64], xU: numpy.ndarray[numpy.float64], m: int, gL: numpy.ndarray[numpy.float64], gU: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: Tuple[Sequence[float], Sequence[float]], sparsity_indices_hess: Tuple[Sequence[float], Sequence[float]], eval_f: Callable, eval_grad_f: Callable, eval_g: Callable, eval_jac_g: Callable, eval_h: Optional[Callable] = None, applynew: Optional[Callable] = None, ipopt_options: Optional[Dict[str, Union[int, float, str]]] = None) -> Problem" "\n\n"
   "n -- Number of variables (dimension of x)" "\n"
   "xL -- Lower bound of x as bounded constraints" "\n"
   "xU -- Upper bound of x as bounded constraints" "\n"
@@ -566,7 +567,7 @@ PyMethodDef problem_methods[] = {
    PyDoc_STR(IPYOPT_SET_INTERMEDIATE_CALLBACK_DOC)},
   {"set", (PyCFunction)set, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(IPYOPT_SET_OPTION_DOC)},
   {"set_problem_scaling", (PyCFunction)set_problem_scaling, METH_VARARGS | METH_KEYWORDS, PyDoc_STR(IPYOPT_SET_PROBLEM_SCALING_DOC)},
-  {NULL, NULL},
+  {NULL, NULL, 0, NULL},
 };
 
 #if PY_MAJOR_VERSION < 3
@@ -575,7 +576,6 @@ static PyObject *problem_getattr(PyObject *self, char *attrname) {
   result = Py_FindMethod(problem_methods, self, attrname);
   return result;
 }
-
 
 /*
  * had to replace PyObject_HEAD_INIT(&PyType_Type) in order to get this to
