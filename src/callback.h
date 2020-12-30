@@ -74,7 +74,6 @@ typedef struct {
   PyObject *py_eval_g;
   PyObject *py_eval_jac_g;
   PyObject *py_eval_h;
-  PyObject *py_apply_new;
   PyObject *py_intermediate_callback;
   unsigned int n_callback_args;
   PyObject **callback_args;

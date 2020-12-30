@@ -95,10 +95,6 @@ eval_h.sparsity_indices = (array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
                            array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3]))
 
 
-def apply_new(_x):
-    return True
-
-
 nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
                      eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g)
 

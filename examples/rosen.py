@@ -55,10 +55,6 @@ eval_h.sparsity_indices = (numpy.array([0, 1, 1], dtype=int),
                            numpy.array([0, 0, 1], dtype=int))
 
 
-def apply_new(_X):
-    return True
-
-
 def main():
 
     # define the parameters and their box constraints
@@ -86,7 +82,6 @@ def main():
         eval_g,
         eval_jac_g,
         eval_h,
-        apply_new,
     )
 
     # define the initial guess

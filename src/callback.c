@@ -101,22 +101,6 @@ Bool intermediate_callback(Index alg_mod,	// 0 is regular, 1 is restore
   return result_as_bool;
 }
 
-static Bool apply_new(PyObject *py_apply_new, PyObject *x_arr) {
-  if(py_apply_new == NULL) return TRUE;
-  // Call the python function to applynew
-  PyObject *arg1 = PyTuple_Pack(1, x_arr);
-  PyObject *tempresult = PyObject_CallObject(py_apply_new, arg1);
-  if(PyErr_Occurred() != NULL || tempresult == NULL) {
-    if(PyErr_Occurred() == NULL)
-      PyErr_Format(PyExc_RuntimeError, "Python function apply_new returns NULL");
-    Py_DECREF(arg1);
-    return FALSE;
-  }
-  Py_DECREF(arg1);
-  Py_DECREF(tempresult);
-  return TRUE;
-}
-
 static PyObject* call(PyObject *callback, PyObject* args[], unsigned int n_args,
                       PyObject **callback_args, unsigned int n_callback_args,
                       PyObject *callback_kwargs) {
@@ -159,8 +143,7 @@ Bool eval_f(Index n, Number *x, Bool new_x, Number *obj_value, UserDataPtr data)
   PyObject* args[] = {x_arr};
   PyObject *return_value = NULL;
   if(!x_arr) return FALSE;
-  if(!new_x || apply_new(callback_data->py_apply_new, x_arr))
-    return_value = call(callback_data->py_eval_f, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
+  return_value = call(callback_data->py_eval_f, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
   Py_DECREF(x_arr);
   
   if(return_value == NULL)
@@ -188,8 +171,7 @@ Bool eval_grad_f(Index n, Number *x, Bool new_x, Number *grad_f, UserDataPtr dat
   if(!check_objects_2(x_arr, out)) return FALSE;
   PyObject *args[] = {x_arr, out};
 
-  if(!new_x || apply_new(callback_data->py_apply_new, x_arr))
-    return_value = call(callback_data->py_eval_grad_f, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
+  return_value = call(callback_data->py_eval_grad_f, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
   Py_CLEAR(x_arr);
   Py_CLEAR(out);
 
@@ -207,8 +189,7 @@ Bool eval_g(Index n, Number *x, Bool new_x, Index m, Number *g, UserDataPtr data
   if(!check_objects_2(x_arr, out)) return FALSE;
   PyObject *args[] = {x_arr, out};
   
-  if(!new_x || apply_new(callback_data->py_apply_new, x_arr))
-    return_value = call(callback_data->py_eval_g, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
+  return_value = call(callback_data->py_eval_g, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
 
   Py_CLEAR(x_arr);
   Py_CLEAR(out);
@@ -240,8 +221,7 @@ Bool eval_jac_g(Index n, Number *x, Bool new_x,
   PyObject *out = wrap_array(values, nele_jac);
   if(!check_objects_2(x_arr, out)) return FALSE;
   PyObject *args[] = {x_arr, out};
-  if(!new_x || apply_new(callback_data->py_apply_new, x_arr))
-    return_value = call(callback_data->py_eval_jac_g, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
+  return_value = call(callback_data->py_eval_jac_g, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
   
   Py_CLEAR(x_arr);
   Py_CLEAR(out);
@@ -270,8 +250,7 @@ Bool eval_h(Index n, Number *x, Bool new_x, Number obj_factor,
   if(!check_objects_3(x_arr, out, lagrangex)) return FALSE;
   
   PyObject *args[] = {x_arr, lagrangex, objfactor, out};
-  if(!new_x || apply_new(callback_data->py_apply_new, x_arr))
-    return_value = call(callback_data->py_eval_h, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
+  return_value = call(callback_data->py_eval_h, args, sizeof(args)/sizeof(PyObject*), callback_args, callback_data->n_callback_args, callback_kwargs);
   
   Py_CLEAR(x_arr);
   Py_CLEAR(out);
