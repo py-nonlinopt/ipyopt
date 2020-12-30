@@ -68,29 +68,14 @@ static Bool array_copy_data(PyArrayObject *arr, Number **dest) {
     (*dest)[i] = data[i];
   return TRUE;
 }
-static Bool check_array_ndim(PyArrayObject *arr, unsigned int ndim, const char *name) {
-  if((unsigned int)PyArray_NDIM(arr) == ndim) return TRUE;
-  PyErr_Format(PyExc_ValueError, "%s has wrong number of dimensions. Expected %d, got %d", name, ndim, PyArray_NDIM(arr));
-  return FALSE;
-}
-static Bool check_array_shape(PyArrayObject *arr, unsigned int dim, const char *name) {
-  if(!check_array_ndim(arr, 1, name)) return FALSE;
+static Bool check_array_dim(PyArrayObject *arr, unsigned int dim, const char *name) {
+  if((unsigned int)PyArray_NDIM(arr) != 1) {
+    PyErr_Format(PyExc_ValueError, "%s has wrong number of dimensions. Expected %d, got %d", name, 1, PyArray_NDIM(arr));
+    return FALSE;
+  }
   if(PyArray_DIMS(arr)[0] == dim) return TRUE;
   PyErr_Format(PyExc_ValueError, "%s has wrong shape. Expected (%d,), found (%d,)", name, dim, PyArray_DIMS(arr)[0]);
   return FALSE;
-}
-static Bool check_array_shape_equal(PyArrayObject *arr1, PyArrayObject *arr2, const char *name1, const char *name2) {
-  int n = PyArray_NDIM(arr1), i;
-  if(n != PyArray_NDIM(arr2)) {
-    PyErr_Format(PyExc_ValueError, "%s and %s must have the same shape.", name1, name2);
-    return FALSE;
-  }
-  for(i=0; i<n; i++)
-    if(PyArray_SHAPE(arr1)[i] != PyArray_SHAPE(arr2)[i]) {
-      PyErr_Format(PyExc_ValueError, "%s and %s must have the same shape.", name1, name2);
-      return FALSE;
-    }
-  return TRUE;
 }
 
 typedef struct {
@@ -211,8 +196,8 @@ static PyObject *set_problem_scaling(PyObject *self, PyObject *args, PyObject *k
                                   &obj_scaling,
                                   &PyArray_Type, &py_x_scaling,
                                   &PyArray_Type, &py_g_scaling)
-     || !(py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None || check_array_shape(py_x_scaling, py_problem->py_n, "x_scaling"))
-     || !(py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None || check_array_shape(py_g_scaling, py_problem->py_m, "g_scaling")))
+     || !(py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None || check_array_dim(py_x_scaling, py_problem->py_n, "x_scaling"))
+     || !(py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None || check_array_dim(py_g_scaling, py_problem->py_m, "g_scaling")))
     return NULL;
   
   Bool result = SetIpoptProblemScaling(nlp, obj_scaling,
@@ -235,18 +220,18 @@ static char IPYOPT_SOLVE_DOC[] = "solve(x: numpy.ndarray[numpy.float64], *, mult
 static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
   enum ApplicationReturnStatus status;	// Solve return code
   int i;
-  int n;
   
   // Return values
-  IPyOptProblemObject *temp = (IPyOptProblemObject*)self;
+  IPyOptProblemObject *py_problem = (IPyOptProblemObject*)self;
+  int n = py_problem->py_n;
   
-  IpoptProblem nlp = temp->nlp;
+  IpoptProblem nlp = py_problem->nlp;
   if(nlp == NULL) {
     PyErr_SetString(PyExc_RuntimeError, "nlp objective passed to solve is NULL\n Problem created?\n");
     return NULL;
   }
-  DispatchData *bigfield = (DispatchData*)&temp->data;
-  int m = temp->py_m;
+  DispatchData *bigfield = (DispatchData*)&py_problem->data;
+  int m = py_problem->py_m;
   
   npy_intp dX[1];
   
@@ -273,10 +258,10 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
      || !check_type((PyObject*)x0, &_PyArray_Check, "x0", "numpy.ndarray")
      || !check_type_optional(callback_kwargs, &check_kwargs, "callback_kwargs", "dict")
      || !check_type_optional(callback_args, &check_args, "callback_args", "tuple")
-     || !check_array_ndim(x0, 1, "x0")
-     || (mL && !check_array_shape_equal(mL, x0, "mL", "x0"))
-     || (mU && !check_array_shape_equal(mU, x0, "mU", "x0"))
-     || (lambda && !check_array_shape(lambda, m, "lambda"))
+     || !check_array_dim(x0, n, "x0")
+     || (mL && !check_array_dim(mL, n, "mL"))
+     || (mU && !check_array_dim(mU, n, "mU"))
+     || (lambda && !check_array_dim(lambda, m, "lambda"))
      || !array_copy_data(x0, &x_working)
      ) {
     SAFE_FREE(x_working);
@@ -293,7 +278,6 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
     AddIpoptStrOption(nlp, "hessian_approximation", "limited-memory");
   
   // allocate space for the initial point and set the values
-  n = PyArray_DIMS(x0)[0];
   dX[0] = n;
   
   x = (PyArrayObject*)PyArray_SimpleNew(1, dX, NPY_DOUBLE);
@@ -331,9 +315,9 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
 }
 
 static _Bool _set_intermediate_callback(PyObject *self, PyObject *py_intermediate_callback) {
-  IPyOptProblemObject *temp = (IPyOptProblemObject*)self;
-  IpoptProblem nlp = temp->nlp;
-  DispatchData *callback_data = (DispatchData*)&temp->data;
+  IPyOptProblemObject *py_problem = (IPyOptProblemObject*)self;
+  IpoptProblem nlp = py_problem->nlp;
+  DispatchData *callback_data = (DispatchData*)&py_problem->data;
   
   if(py_intermediate_callback == Py_None)
     py_intermediate_callback = NULL;
@@ -489,10 +473,10 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
      || (callback_data.py_apply_new != NULL && !check_callback(callback_data.py_apply_new, "applynew"))
      || !check_non_negative(m, "m")
      || !check_non_negative(n, "n")
-     || !check_array_shape(py_x_L, n, "x_L")
-     || !check_array_shape(py_x_U, n, "x_U")
-     || !check_array_shape(py_g_L, m, "g_L")
-     || !check_array_shape(py_g_U, m, "g_U")
+     || !check_array_dim(py_x_L, n, "x_L")
+     || !check_array_dim(py_x_U, n, "x_U")
+     || !check_array_dim(py_g_L, m, "g_L")
+     || !check_array_dim(py_g_U, m, "g_U")
      || !array_copy_data(py_x_L, &x_L)
      || !array_copy_data(py_x_U, &x_U)
      || !array_copy_data(py_g_L, &g_L)
