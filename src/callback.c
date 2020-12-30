@@ -85,14 +85,19 @@ Bool intermediate_callback(Index alg_mod,	// 0 is regular, 1 is restore
 				      (unsigned int[]){sizeof(args)/sizeof(PyObject*), callback_data->n_callback_args});
   
   PyObject *result = PyObject_Call(callback_data->py_intermediate_callback, arglist, callback_kwargs);
+  Py_CLEAR(arglist);
   
-  if(!result)
+  if(!result) {
     PyErr_Print();
-  
+    return FALSE;
+  }
   result_as_bool = (Bool)PyLong_AsLong(result);
   
+  if(PyErr_Occurred()) {
+    PyErr_Format(PyExc_RuntimeError, "Python function intermediate_callback returned non bool");
+    return FALSE;
+  }
   Py_DECREF(result);
-  Py_CLEAR(arglist);
   return result_as_bool;
 }
 

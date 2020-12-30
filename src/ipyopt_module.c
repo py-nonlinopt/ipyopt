@@ -303,15 +303,15 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
   else lambda_data = PyArray_DATA(lambda);
   
   // For status code, see IpReturnCodes_inc.h in Ipopt
-  if(x != NULL && mL_data != NULL && mU_data != NULL && lambda_data !=NULL) {
+  if(x != NULL && mL_data != NULL && mU_data != NULL && lambda_data != NULL) {
     status = IpoptSolve(nlp, x_working, NULL, &obj,
                         lambda_data, mL_data, mU_data,
                         (UserDataPtr)bigfield);
     double *return_x_data = PyArray_DATA(x);
     for(i=0; i<n; i++)
       return_x_data[i] = x_working[i];
-
-    retval = PyTuple_Pack(3, PyArray_Return(x), PyFloat_FromDouble(obj), PyLong_FromLong(status));
+    if(!PyErr_Occurred())
+      retval = PyTuple_Pack(3, PyArray_Return(x), PyFloat_FromDouble(obj), PyLong_FromLong(status));
   } else {
     Py_XDECREF(x);
     PyErr_NoMemory();
@@ -321,29 +321,44 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
   if(mU == NULL && mU_data != NULL) free(mU_data);
   if(mL == NULL && mL_data != NULL) free(mL_data);
 
-  Py_XDECREF(x);
   SAFE_FREE(x_working);
   SAFE_FREE(unpacked_args);
+  Py_XDECREF(x);
   return retval;
 }
 
-static char IPYOPT_SET_INTERMEDIATE_CALLBACK_DOC[] =
-  "set_intermediate_callback(callback_function)" "\n\n"
-  "Set the intermediate callback function. "
-  "This gets called each iteration.";
-static PyObject *set_intermediate_callback(PyObject *self, PyObject *args) {
-  PyObject *py_intermediate_callback;
+static _Bool _set_intermediate_callback(PyObject *self, PyObject *py_intermediate_callback) {
   IPyOptProblemObject *temp = (IPyOptProblemObject*)self;
   IpoptProblem nlp = temp->nlp;
-  DispatchData *bigfield = (DispatchData*)&temp->data;
+  DispatchData *callback_data = (DispatchData*)&temp->data;
   
-  if(!PyArg_ParseTuple(args, "O", &py_intermediate_callback)
-     || !check_callback(py_intermediate_callback, "intermediate_callback"))
-    return NULL;
-  bigfield->py_intermediate_callback = py_intermediate_callback;
+  if(py_intermediate_callback == Py_None)
+    py_intermediate_callback = NULL;
+  if(py_intermediate_callback != NULL && !check_callback(py_intermediate_callback, "intermediate_callback"))
+    return FALSE;
+  if(callback_data->py_intermediate_callback != NULL)
+    Py_XDECREF(callback_data->py_intermediate_callback);
+  callback_data->py_intermediate_callback = py_intermediate_callback;
+  if(py_intermediate_callback != NULL) {
+    SetIntermediateCallback(nlp, intermediate_callback);
+    Py_XINCREF(py_intermediate_callback);
+  } else SetIntermediateCallback(nlp, NULL);
       
   // Put a Python function object into this data structure
-  SetIntermediateCallback(nlp, intermediate_callback);
+  return TRUE;
+}
+
+static char IPYOPT_SET_INTERMEDIATE_CALLBACK_DOC[] =
+  "set_intermediate_callback(callback_function: Optional[Callable])" "\n\n"
+  "Set the intermediate callback function. "
+  "This gets called each iteration." "\n"
+  "For more info regarding the signature of the callback, see the doc of ipopt::Problem.";
+static PyObject *set_intermediate_callback(PyObject *self, PyObject *args) {
+  PyObject *py_intermediate_callback = NULL;
+  
+  if(!PyArg_ParseTuple(args, "O", &py_intermediate_callback)
+     || !_set_intermediate_callback(self, py_intermediate_callback))
+    return NULL;
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -374,12 +389,12 @@ static _Bool ipopt_problem_c_init(IPyOptProblemObject *object,
 
 static char IPYOPT_PROBLEM_DOC[] =
   "IPOpt problem type in python" "\n\n"
-  "Problem(n: int, xL: numpy.ndarray[numpy.float64], xU: numpy.ndarray[numpy.float64], m: int, gL: numpy.ndarray[numpy.float64], gU: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: Tuple[Sequence[float], Sequence[float]], sparsity_indices_hess: Tuple[Sequence[float], Sequence[float]], eval_f: Callable, eval_grad_f: Callable, eval_g: Callable, eval_jac_g: Callable, eval_h: Optional[Callable] = None, applynew: Optional[Callable] = None, ipopt_options: Optional[Dict[str, Union[int, float, str]]] = None) -> Problem" "\n\n"
-  "n -- Number of variables (dimension of x)" "\n"
+  "Problem(n: int, xL: numpy.ndarray[numpy.float64], xU: numpy.ndarray[numpy.float64], m: int, gL: numpy.ndarray[numpy.float64], gU: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: Tuple[Sequence[float], Sequence[float]], sparsity_indices_hess: Tuple[Sequence[float], Sequence[float]], eval_f: Callable, eval_grad_f: Callable, eval_g: Callable, eval_jac_g: Callable, eval_h: Optional[Callable] = None, applynew: Optional[Callable] = None, intermediate_callback: Optional[Callable] = None, ipopt_options: Optional[Dict[str, Union[int, float, str]]] = None) -> Problem" "\n\n"
+  "n  -- Number of variables (dimension of x)" "\n"
   "xL -- Lower bound of x as bounded constraints" "\n"
   "xU -- Upper bound of x as bounded constraints" "\n"
   "\t" "both xL, xU should be one 1-dim arrays with length n" "\n\n"
-  "m -- Number of constraints" "\n"
+  "m  -- Number of constraints" "\n"
   "gL -- Lower bound of constraints" "\n"
   "gU -- Upper bound of constraints" "\n"
   "\t" "both gL, gU should be one dimension arrays with length m" "\n"
@@ -408,6 +423,7 @@ static char IPYOPT_PROBLEM_DOC[] =
   "\t" "If omitted, the parameter sparsity_indices_hess will be ignored and Ipopt will use approximated hessian" "\n"
   "\t" "which will make the convergence slower." "\n"
   "applynew -- Callback with signature `cb(x: numpy.array) -> None` which is called whenever one of the functions eval_f, eval_grad_f, eval_jac_g or eval_h is called with an argument `x` differing from the previous call. This can be used for logging." "\n"
+  "intermediate_callback --  Intermediate Callback method for the user. This method is called once per iteration (during the convergence check), and can be used to obtain information about the optimization status while Ipopt solves the problem, and also to request a premature termination (see the IpOpt docs for more details). Signature: `intermediate_callback(mode: int, iter: int, obj_value: float, inf_pr: float, inf_du: float, mu: float, d_norm: float, regularization_size: float, alpha_du: float, alpha_pr: float) -> Any`."
   "ipopt_options -- A dict of key value pairs, to be passed to IPOpt (see ipopt --print-options or the IPOpt manual)";
 
 static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObject *keywords) {
@@ -420,6 +436,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
     .py_eval_jac_g = NULL,
     .py_eval_h = NULL,
     .py_apply_new = NULL,
+    .py_intermediate_callback = NULL,
     .callback_args = NULL,
     .n_callback_args = 0,
     .callback_kwargs = NULL,
@@ -441,9 +458,10 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
   PyObject *py_sparsity_indices_jac_g = NULL;
   PyObject *py_sparsity_indices_hess = NULL;
   PyObject *py_ipopt_options = NULL;
+  PyObject *py_intermediate_callback = NULL;
   
-  if(!PyArg_ParseTupleAndKeywords(args, keywords, "iO!O!iO!O!OOOOOO|OOO:ipyopt.Problem",
-				  (char*[]){"n", "xL", "xU", "m", "gL", "gU", "sparsity_indices_jac_g", "sparsity_indices_hess", "eval_f", "eval_grad_f", "eval_g", "eval_jac_g", "eval_h", "applynew", "ipopt_options", NULL},
+  if(!PyArg_ParseTupleAndKeywords(args, keywords, "iO!O!iO!O!OOOOOO|OOOO:ipyopt.Problem",
+				  (char*[]){"n", "xL", "xU", "m", "gL", "gU", "sparsity_indices_jac_g", "sparsity_indices_hess", "eval_f", "eval_grad_f", "eval_g", "eval_jac_g", "eval_h", "applynew", "intermediate_callback", "ipopt_options", NULL},
                                   &n,
                                   &PyArray_Type, &py_x_L,
                                   &PyArray_Type, &py_x_U,
@@ -458,6 +476,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
                                   &callback_data.py_eval_jac_g,
                                   &callback_data.py_eval_h,
                                   &callback_data.py_apply_new,
+                                  &py_intermediate_callback,
                                   &py_ipopt_options)
      || !parse_sparsity_indices(py_sparsity_indices_jac_g, &callback_data.sparsity_indices_jac_g)
      || !check_callback(callback_data.py_eval_f, "eval_f")
@@ -494,6 +513,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
   Py_XINCREF(callback_data.py_eval_jac_g);
   Py_XINCREF(callback_data.py_eval_h);
   Py_XINCREF(callback_data.py_apply_new);
+em::new
 
   // create the Ipopt Problem
 
@@ -501,7 +521,9 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
   if(!ipopt_problem_c_init(self,
 			   n, x_L, x_U,
 			   m, g_L, g_U,
-			   &callback_data)) {
+			   &callback_data)
+     
+     || !_set_intermediate_callback((PyObject*)self, py_intermediate_callback)) {
     Py_CLEAR(self);
   }
   SAFE_FREE(x_L);
@@ -531,6 +553,7 @@ static int py_ipopt_problem_clear(IPyOptProblemObject *self) {
   Py_CLEAR(dp->py_eval_jac_g);
   Py_CLEAR(dp->py_eval_h);
   Py_CLEAR(dp->py_apply_new);
+  Py_CLEAR(dp->py_intermediate_callback);
 
   return 0;
 }
@@ -557,6 +580,7 @@ static int py_ipopt_problem_traverse(IPyOptProblemObject *self, visitproc visit,
   Py_VISIT(dp->py_eval_jac_g);
   Py_VISIT(dp->py_eval_h);
   Py_VISIT(dp->py_apply_new);
+  Py_VISIT(dp->py_intermediate_callback);
   return 0;
 }
 
