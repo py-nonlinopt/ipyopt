@@ -198,23 +198,26 @@ static char IPYOPT_SET_PROBLEM_SCALING_DOC[] =
   "Set scaling parameters for the NLP." "\n"
   "Attention: Only takes effect if `nlp_scaling_method=\"user-scaling\"` is set via `Problem.set` or `ipopt_options`!" " "
   "If x_scaling or g_scaling is not specified or explicitly are None, then no scaling for x resp. g is done. "
-  "This function does not check if the dimensions for x_scaling, g_scaling match the NLP." "\n\n"
   "This corresponds to the TNLP::get_scaling_parameters method. "
   ;
 static PyObject *set_problem_scaling(PyObject *self, PyObject *args, PyObject *keywords) {
-  IpoptProblem nlp = (IpoptProblem)(((IPyOptProblemObject*)self)->nlp);
+  IPyOptProblemObject* py_problem = (IPyOptProblemObject*)self;
+  IpoptProblem nlp = (IpoptProblem)(py_problem->nlp);
   double obj_scaling;
-  PyArrayObject *x_scaling = NULL;
-  PyArrayObject *g_scaling = NULL;
+  PyArrayObject *py_x_scaling = NULL;
+  PyArrayObject *py_g_scaling = NULL;
   if(!PyArg_ParseTupleAndKeywords(args, keywords, "d|O!O!:ipyopt.Problem.set_problem_scaling",
 				  (char*[]){"obj_scaling", "x_scaling", "g_scaling", NULL},
                                   &obj_scaling,
-                                  &PyArray_Type, &x_scaling,
-                                  &PyArray_Type, &g_scaling))
+                                  &PyArray_Type, &py_x_scaling,
+                                  &PyArray_Type, &py_g_scaling)
+     || !(py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None || check_array_shape(py_x_scaling, py_problem->n_variables, "x_scaling"))
+     || !(py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None || check_array_shape(py_g_scaling, py_problem->m_constraints, "g_scaling")))
     return NULL;
+  
   Bool result = SetIpoptProblemScaling(nlp, obj_scaling,
-                                       (x_scaling == NULL)?NULL:PyArray_DATA(x_scaling),
-                                       (g_scaling == NULL)?NULL:PyArray_DATA(g_scaling));
+                                       (py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None)?NULL:PyArray_DATA(py_x_scaling),
+                                       (py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None)?NULL:PyArray_DATA(py_g_scaling));
   if(result) Py_RETURN_TRUE;
   Py_RETURN_FALSE;
 }
