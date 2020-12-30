@@ -96,8 +96,8 @@ static Bool check_array_shape_equal(PyArrayObject *arr1, PyArrayObject *arr2, co
 typedef struct {
   PyObject_HEAD IpoptProblem nlp;
   DispatchData data;
-  Index n_variables;
-  Index m_constraints;
+  Index py_n;
+  Index py_m;
 } IPyOptProblemObject;
 
 
@@ -211,8 +211,8 @@ static PyObject *set_problem_scaling(PyObject *self, PyObject *args, PyObject *k
                                   &obj_scaling,
                                   &PyArray_Type, &py_x_scaling,
                                   &PyArray_Type, &py_g_scaling)
-     || !(py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None || check_array_shape(py_x_scaling, py_problem->n_variables, "x_scaling"))
-     || !(py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None || check_array_shape(py_g_scaling, py_problem->m_constraints, "g_scaling")))
+     || !(py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None || check_array_shape(py_x_scaling, py_problem->py_n, "x_scaling"))
+     || !(py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None || check_array_shape(py_g_scaling, py_problem->py_m, "g_scaling")))
     return NULL;
   
   Bool result = SetIpoptProblemScaling(nlp, obj_scaling,
@@ -246,7 +246,7 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
     return NULL;
   }
   DispatchData *bigfield = (DispatchData*)&temp->data;
-  int m = temp->m_constraints;
+  int m = temp->py_m;
   
   npy_intp dX[1];
   
@@ -383,8 +383,8 @@ static _Bool ipopt_problem_c_init(IPyOptProblemObject *object,
     PyErr_SetString(PyExc_MemoryError, "Cannot create IpoptProblem instance");
     return FALSE;
   }
-  object->n_variables = n;
-  object->m_constraints = m;
+  object->py_n = n;
+  object->py_m = m;
   object->nlp = thisnlp;
   memcpy((void*)&object->data, (void*)callback_data, sizeof(DispatchData));
   return TRUE;
