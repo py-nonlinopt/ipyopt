@@ -173,8 +173,7 @@ static PyObject *set(PyObject *self, PyObject *args, PyObject *keywords) {
   if(!check_kwargs(keywords) || !check_no_args("set", args)) return PyErr_Occurred();
   if(!set_options(nlp, keywords))
     return NULL;
-  Py_INCREF(Py_None);
-  return Py_None;
+  Py_RETURN_NONE;
 }
 
 static char IPYOPT_SET_PROBLEM_SCALING_DOC[] =
@@ -185,25 +184,32 @@ static char IPYOPT_SET_PROBLEM_SCALING_DOC[] =
   "If x_scaling or g_scaling is not specified or explicitly are None, then no scaling for x resp. g is done. "
   "This corresponds to the TNLP::get_scaling_parameters method. "
   ;
-static PyObject *set_problem_scaling(PyObject *self, PyObject *args, PyObject *keywords) {
+static _Bool _set_problem_scaling(PyObject *self, double obj_scaling, PyArrayObject *py_x_scaling, PyArrayObject *py_g_scaling) {
   IPyOptProblemObject* py_problem = (IPyOptProblemObject*)self;
   IpoptProblem nlp = (IpoptProblem)(py_problem->nlp);
-  double obj_scaling;
-  PyArrayObject *py_x_scaling = NULL;
-  PyArrayObject *py_g_scaling = NULL;
-  if(!PyArg_ParseTupleAndKeywords(args, keywords, "d|O!O!:ipyopt.Problem.set_problem_scaling",
-				  (char*[]){"obj_scaling", "x_scaling", "g_scaling", NULL},
-                                  &obj_scaling,
-                                  &PyArray_Type, &py_x_scaling,
-                                  &PyArray_Type, &py_g_scaling)
-     || !(py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None || check_array_dim(py_x_scaling, py_problem->py_n, "x_scaling"))
+  if(!(py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None || check_array_dim(py_x_scaling, py_problem->py_n, "x_scaling"))
      || !(py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None || check_array_dim(py_g_scaling, py_problem->py_m, "g_scaling")))
     return NULL;
   
   Bool result = SetIpoptProblemScaling(nlp, obj_scaling,
                                        (py_x_scaling == NULL || (PyObject*)py_x_scaling == Py_None)?NULL:PyArray_DATA(py_x_scaling),
                                        (py_g_scaling == NULL || (PyObject*)py_g_scaling == Py_None)?NULL:PyArray_DATA(py_g_scaling));
-  if(result) Py_RETURN_TRUE;
+  return result;
+}
+
+static PyObject *set_problem_scaling(PyObject *self, PyObject *args, PyObject *keywords) {
+  double obj_scaling;
+  PyObject *py_x_scaling = NULL;
+  PyObject *py_g_scaling = NULL;
+  if(!PyArg_ParseTupleAndKeywords(args, keywords, "d|OO:ipyopt.Problem.set_problem_scaling",
+				  (char*[]){"obj_scaling", "x_scaling", "g_scaling", NULL},
+                                  &obj_scaling,
+                                  &py_x_scaling,
+                                  &py_g_scaling)
+     || !check_optional(py_x_scaling, _PyArray_Check, "x_scaling", "Optional[numpy.ndarray]")
+     || !check_optional(py_g_scaling, _PyArray_Check, "g_scaling", "Optional[numpy.ndarray]")
+     || !_set_problem_scaling(self, obj_scaling, (PyArrayObject*)py_x_scaling, (PyArrayObject*)py_g_scaling))
+    return NULL;
   Py_RETURN_FALSE;
 }
 
@@ -346,8 +352,7 @@ static PyObject *set_intermediate_callback(PyObject *self, PyObject *args) {
   if(!PyArg_ParseTuple(args, "O", &py_intermediate_callback)
      || !_set_intermediate_callback(self, py_intermediate_callback))
     return NULL;
-  Py_INCREF(Py_None);
-  return Py_None;
+  Py_RETURN_NONE;
 }
 
 static _Bool ipopt_problem_c_init(IPyOptProblemObject *object,
@@ -376,7 +381,7 @@ static _Bool ipopt_problem_c_init(IPyOptProblemObject *object,
 
 static char IPYOPT_PROBLEM_DOC[] =
   "IPOpt problem type in python" "\n\n"
-  "Problem(n: int, xL: numpy.ndarray[numpy.float64], xU: numpy.ndarray[numpy.float64], m: int, gL: numpy.ndarray[numpy.float64], gU: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: Tuple[Sequence[float], Sequence[float]], sparsity_indices_hess: Tuple[Sequence[float], Sequence[float]], eval_f: Callable, eval_grad_f: Callable, eval_g: Callable, eval_jac_g: Callable, eval_h: Optional[Callable] = None, applynew: Optional[Callable] = None, intermediate_callback: Optional[Callable] = None, ipopt_options: Optional[Dict[str, Union[int, float, str]]] = None) -> Problem" "\n\n"
+  "Problem(n: int, xL: numpy.ndarray[numpy.float64], xU: numpy.ndarray[numpy.float64], m: int, gL: numpy.ndarray[numpy.float64], gU: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: Tuple[Sequence[float], Sequence[float]], sparsity_indices_hess: Tuple[Sequence[float], Sequence[float]], eval_f: Callable, eval_grad_f: Callable, eval_g: Callable, eval_jac_g: Callable, eval_h: Optional[Callable] = None, applynew: Optional[Callable] = None, intermediate_callback: Optional[Callable] = None, obj_scaling: float = 1., x_scaling: Optional[numpy.ndarray[numpy.float64]] = None, g_scaling: Optional[numpy.ndarray[numpy.float64]] = None, ipopt_options: Optional[Dict[str, Union[int, float, str]]] = None) -> Problem" "\n\n"
   "n  -- Number of variables (dimension of x)" "\n"
   "xL -- Lower bound of x as bounded constraints" "\n"
   "xU -- Upper bound of x as bounded constraints" "\n"
@@ -410,7 +415,10 @@ static char IPYOPT_PROBLEM_DOC[] =
   "\t" "If omitted, the parameter sparsity_indices_hess will be ignored and Ipopt will use approximated hessian" "\n"
   "\t" "which will make the convergence slower." "\n"
   "applynew -- Callback with signature `cb(x: numpy.array) -> None` which is called whenever one of the functions eval_f, eval_grad_f, eval_jac_g or eval_h is called with an argument `x` differing from the previous call. This can be used for logging." "\n"
-  "intermediate_callback --  Intermediate Callback method for the user. This method is called once per iteration (during the convergence check), and can be used to obtain information about the optimization status while Ipopt solves the problem, and also to request a premature termination (see the IpOpt docs for more details). Signature: `intermediate_callback(mode: int, iter: int, obj_value: float, inf_pr: float, inf_du: float, mu: float, d_norm: float, regularization_size: float, alpha_du: float, alpha_pr: float) -> Any`."
+  "intermediate_callback --  Intermediate Callback method for the user. This method is called once per iteration (during the convergence check), and can be used to obtain information about the optimization status while Ipopt solves the problem, and also to request a premature termination (see the IpOpt docs for more details). Signature: `intermediate_callback(mode: int, iter: int, obj_value: float, inf_pr: float, inf_du: float, mu: float, d_norm: float, regularization_size: float, alpha_du: float, alpha_pr: float) -> Any`." "\n"
+  "obj_scaling -- A scaling factor for the objective value (see `set_problem_scaling`)." "\n"
+  "x_scaling   -- Either None (no scaling) or a numpy.array of length n, scaling the x variables (see `set_problem_scaling`)." "\n"
+  "g_scaling   -- Either None (no scaling) or a numpy.array of length m, scaling the g variables (see `set_problem_scaling`)." "\n"
   "ipopt_options -- A dict of key value pairs, to be passed to IPOpt (see ipopt --print-options or the IPOpt manual)";
 
 static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObject *keywords) {
@@ -441,14 +449,17 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
   Number *x_U = NULL;	///< upper bounds on x
   Number *g_L = NULL;	///< lower bounds on g
   Number *g_U = NULL;	///< upper bounds on g
+  Number obj_scaling = 1.;
+  PyObject *py_x_scaling = NULL;
+  PyObject *py_g_scaling = NULL;
   
   PyObject *py_sparsity_indices_jac_g = NULL;
   PyObject *py_sparsity_indices_hess = NULL;
   PyObject *py_ipopt_options = NULL;
   PyObject *py_intermediate_callback = NULL;
   
-  if(!PyArg_ParseTupleAndKeywords(args, keywords, "iO!O!iO!O!OOOOOO|OOOO:ipyopt.Problem",
-				  (char*[]){"n", "xL", "xU", "m", "gL", "gU", "sparsity_indices_jac_g", "sparsity_indices_hess", "eval_f", "eval_grad_f", "eval_g", "eval_jac_g", "eval_h", "applynew", "intermediate_callback", "ipopt_options", NULL},
+  if(!PyArg_ParseTupleAndKeywords(args, keywords, "iO!O!iO!O!OOOOOO|OOOdOOO:ipyopt.Problem",
+				  (char*[]){"n", "xL", "xU", "m", "gL", "gU", "sparsity_indices_jac_g", "sparsity_indices_hess", "eval_f", "eval_grad_f", "eval_g", "eval_jac_g", "eval_h", "applynew", "intermediate_callback", "obj_scaling", "x_scaling", "g_scaling", "ipopt_options", NULL},
                                   &n,
                                   &PyArray_Type, &py_x_L,
                                   &PyArray_Type, &py_x_U,
@@ -464,6 +475,9 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
                                   &callback_data.py_eval_h,
                                   &callback_data.py_apply_new,
                                   &py_intermediate_callback,
+                                  &obj_scaling,
+                                  &py_x_scaling,
+                                  &py_g_scaling,
                                   &py_ipopt_options)
      || !parse_sparsity_indices(py_sparsity_indices_jac_g, &callback_data.sparsity_indices_jac_g)
      || !check_callback(callback_data.py_eval_f, "eval_f")
@@ -483,6 +497,8 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
      || !array_copy_data(py_g_U, &g_U)
      || !(callback_data.py_eval_h == NULL || (check_callback(callback_data.py_eval_h, "h") && parse_sparsity_indices(py_sparsity_indices_hess, &callback_data.sparsity_indices_hess)))
      || !check_kwargs(py_ipopt_options)
+     || !check_optional(py_x_scaling, _PyArray_Check, "x_scaling", "Optional[numpy.ndarray]")
+     || !check_optional(py_g_scaling, _PyArray_Check, "g_scaling", "Optional[numpy.ndarray]")
      ) {
     SAFE_FREE(x_L);
     SAFE_FREE(x_U);
@@ -510,7 +526,8 @@ em::new
 			   m, g_L, g_U,
 			   &callback_data)
      
-     || !_set_intermediate_callback((PyObject*)self, py_intermediate_callback)) {
+     || !_set_intermediate_callback((PyObject*)self, py_intermediate_callback)
+     || !_set_problem_scaling((PyObject*)self, obj_scaling, (PyArrayObject*)py_x_scaling, (PyArrayObject*)py_g_scaling)) {
     Py_CLEAR(self);
   }
   SAFE_FREE(x_L);
