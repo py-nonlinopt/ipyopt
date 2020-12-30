@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/bin/env python3
 
 """
 The same model as Ipopt/examples/hs071
@@ -111,8 +111,6 @@ zu = zeros(nvar)
 constraint_multipliers = zeros(ncon)
 _x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
                             mult_x_L=zl, mult_x_U=zu)
-# import pdb; pdb.set_trace()
-
 
 def print_variable(variable_name, value):
     for i, val in enumerate(value):
