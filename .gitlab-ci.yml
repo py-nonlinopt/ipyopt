@@ -22,12 +22,20 @@ build:
     paths:
       - dist/ipyopt-*manylinux*.whl
       - dist/ipyopt-*.tar.gz
+
 test-examples:
   stage: test
   before_script:
     - /opt/python/cp38-cp38/bin/pip install scipy .
   script:
     - for script in examples/* ; do /opt/python/cp38-cp38/bin/python "$script" || exit 1 ; done
+
+test:
+  stage: test
+  before_script:
+    - /opt/python/cp38-cp38/bin/pip install numpy .
+  script:
+    - /opt/python/cp38-cp38/bin/python -m unittest
 
 pypi:
   stage: deploy
