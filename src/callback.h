@@ -75,9 +75,6 @@ typedef struct {
   PyObject *py_eval_jac_g;
   PyObject *py_eval_h;
   PyObject *py_intermediate_callback;
-  unsigned int n_callback_args;
-  PyObject **callback_args;
-  PyObject *callback_kwargs;
   SparsityIndices sparsity_indices_jac_g, sparsity_indices_hess;
 } DispatchData;
 

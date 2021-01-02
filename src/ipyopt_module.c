@@ -41,7 +41,6 @@
 
 static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx);
 static void sparsity_indices_free(SparsityIndices* idx);
-static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args);
 static Bool check_type(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
 static Bool check_optional(const PyObject *obj, Bool (*checker)(const PyObject*), const char *obj_name, const char *type_name);
 static Bool check_callback(PyObject *callback, const char *name);
@@ -49,7 +48,6 @@ static Bool _PyArray_Check(const PyObject* obj) { return PyArray_Check(obj); } /
 static Bool _PyLong_Check(const PyObject* obj) { return PyLong_Check(obj); } // Macro -> function
 static Bool _PyUnicode_Check(const PyObject* obj) { return PyUnicode_Check(obj); } // Macro -> function
 static Bool _PyFloat_Check(const PyObject* obj) { return PyFloat_Check(obj); } // Macro -> function
-static Bool check_args(const PyObject *args);
 static Bool check_kwargs(const PyObject *kwargs);
 static Bool check_non_negative(int n, const char *name) {
   if(n >= 0) return TRUE;
@@ -229,14 +227,13 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
     PyErr_SetString(PyExc_RuntimeError, "nlp objective passed to solve is NULL\n Problem created?\n");
     return NULL;
   }
-  DispatchData *bigfield = (DispatchData*)&py_problem->data;
+  DispatchData *callbacks = (DispatchData*)&py_problem->data;
   int m = py_problem->py_m;
   
   npy_intp dX[1];
   
   PyArrayObject *x = NULL, *mL = NULL, *mU = NULL, *lambda = NULL;
   double *mL_data = NULL, *mU_data = NULL, *lambda_data = NULL;
-  PyObject *callback_args = NULL, *callback_kwargs = NULL;
   Number obj; // objective value
   
   PyObject *retval = NULL;
@@ -244,19 +241,13 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
   
   Number *x_working = NULL;
   
-  unsigned int n_args = 0;
-  PyObject **unpacked_args = NULL;
-  if(!PyArg_ParseTupleAndKeywords(args, keywords, "O!|OO$O!O!O!",
-				  (char*[]){"x0", "callback_args", "callback_kwargs", "mult_g", "mult_x_L", "mult_x_U", NULL},
+  if(!PyArg_ParseTupleAndKeywords(args, keywords, "O!|$O!O!O!",
+				  (char*[]){"x0", "mult_g", "mult_x_L", "mult_x_U", NULL},
 				  &PyArray_Type, &x0,
-				  &callback_args,
-				  &callback_kwargs,
 				  &PyArray_Type, &lambda, // mult_g 
 				  &PyArray_Type, &mL, // mult_x_L
 				  &PyArray_Type, &mU) // mult_x_Y
      || !check_type((PyObject*)x0, &_PyArray_Check, "x0", "numpy.ndarray")
-     || !check_optional(callback_kwargs, &check_kwargs, "callback_kwargs", "dict")
-     || !check_optional(callback_args, &check_args, "callback_args", "tuple")
      || !check_array_dim(x0, n, "x0")
      || (mL && !check_array_dim(mL, n, "mL"))
      || (mU && !check_array_dim(mU, n, "mU"))
@@ -266,14 +257,7 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
     SAFE_FREE(x_working);
     return NULL;
   }
-  if(callback_args != Py_None && callback_args != NULL)
-    unpack_args(callback_args, &unpacked_args, &n_args);
-  if(callback_kwargs == Py_None) callback_kwargs = NULL;
-  
-  bigfield->callback_args = unpacked_args;
-  bigfield->n_callback_args = n_args;
-  bigfield->callback_kwargs = callback_kwargs;
-  if(bigfield->py_eval_h == NULL)
+  if(callbacks->py_eval_h == NULL)
     AddIpoptStrOption(nlp, "hessian_approximation", "limited-memory");
   
   // allocate space for the initial point and set the values
@@ -292,7 +276,7 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
   if(x != NULL && mL_data != NULL && mU_data != NULL && lambda_data != NULL) {
     status = IpoptSolve(nlp, x_working, NULL, &obj,
                         lambda_data, mL_data, mU_data,
-                        (UserDataPtr)bigfield);
+                        (UserDataPtr)callbacks);
     double *return_x_data = PyArray_DATA(x);
     for(i=0; i<n; i++)
       return_x_data[i] = x_working[i];
@@ -308,7 +292,6 @@ static PyObject *solve(PyObject *self, PyObject *args, PyObject *keywords) {
   if(mL == NULL && mL_data != NULL) free(mL_data);
 
   SAFE_FREE(x_working);
-  SAFE_FREE(unpacked_args);
   Py_XDECREF(x);
   return retval;
 }
@@ -423,9 +406,6 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args, PyObje
     .py_eval_jac_g = NULL,
     .py_eval_h = NULL,
     .py_intermediate_callback = NULL,
-    .callback_args = NULL,
-    .n_callback_args = 0,
-    .callback_kwargs = NULL,
     .sparsity_indices_jac_g = { 0 },
     .sparsity_indices_hess = { 0 }
   };
@@ -715,20 +695,6 @@ static _Bool parse_sparsity_indices(PyObject* obj, SparsityIndices *idx) {
   return TRUE;
 }
 
-static void unpack_args(PyObject *args, PyObject ***unpacked_args, unsigned int *n_args) {
-  unsigned int i, n;
-  n = PyTuple_Size(args);
-  *n_args = n;
-  if(n == 0)
-    *unpacked_args = NULL;
-  else
-    *unpacked_args = malloc(n*sizeof(PyObject*));
-  for(i=0; i<n; i++)
-    (*unpacked_args)[i] = PyTuple_GetItem(args, i);
-}
-static Bool check_args(const PyObject *args) {
-  return !(args != NULL && args != Py_None && !PyTuple_Check(args));
-}
 static Bool check_kwargs(const PyObject *kwargs) {
   if(kwargs == NULL || kwargs == Py_None || PyDict_Check(kwargs)) return TRUE;
   PyErr_Format(PyExc_RuntimeError, "C-API-Level Error: keywords are not of type dict");
