@@ -2,15 +2,12 @@
 
 # IPyOpt
 
-`IPyOpt` is a python module that allows you to use
+`IPyOpt` is a Python 🐍 C++ extension that allows you to use
 [Ipopt](http://www.coin-or.org/Ipopt/) in Python.
-It was developed by Eric Xu when he was a PhD student at [Washington
-University](https://wustl.edu/) and issued under the BSD license.
-Original repository: [xuy/pyipopt](https://github.com/xuy/pyipopt).
 
 ## Installation
 
-*Note* the pypi repo only provides linux builds for now.
+*Note* the pypi repo currently only provides 🐧 linux wheels.
 
 ```bash
 pip install [--user] ipyopt
@@ -48,8 +45,7 @@ nlp = ipyopt.Problem(...)
 nlp.solve(...)
 ```
 
-You can also check out [examples/hs071.py](examples/hs071.py) to see
-how to use `IPyOpt`.
+For an example, see [examples/hs071.py](examples/hs071.py).
 
 `IPyOpt` as a module comes with docstring. You can poke around 
 it by using Python's `help()` command.
@@ -108,7 +104,15 @@ sudo python setup.py install
 
 ## Testing
 
-To see if you have `IPyOpt` ready, use the following command under the
+**Unit tests:**
+
+```sh
+python -m unittest
+```
+
+**Run examples:**
+
+Use the following command under the
 [examples](examples) directory. 
 
 ```sh
@@ -120,17 +124,12 @@ optimization problem. If everything is OK, `IPyOpt` will invoke
 `Ipopt` to solve it for you. This python file is self-documented and
 can be used as a template for writing your own optimization problems.
 
-`IPyOpt` is a legitimate Python module, you can inspect it by using
-standard Python commands like `dir` or `help`. All functions in
-`IPyOpt` are documented in details.
-
 **Hessian Estimation**: since Hessian estimation is usually tedious,
 Ipopt can solve problems without Hessian estimation. `IPyOpt` also
 supports this feature. The file [examples/hs071.py](examples/hs071.py)
 demonstrates the idea. If you provide the `ipyopt.Problem` constructor
-with an `eval_h` callback function as well as the `apply_new` callback
-function, `Ipopt` will delegate the Hessian matrix calculation to your
-function (otherwise `Ipopt` will approximate Hessian for you).
+with an `eval_h` callback function, `IPOpt` will delegate the Hessian matrix calculation to your
+function (otherwise `IPOpt` will approximate Hessian for you).
 
 ## Contributing
 
@@ -140,109 +139,11 @@ function (otherwise `Ipopt` will approximate Hessian for you).
 4. Push to the branch (`git push origin new_branch`)
 5. Create a merge request
 
-## Troubleshooting
-
-### Check Ipopt
-
-`IPyOpt` links to `Ipopt`'s C library. If that library is not
-available `IPyOpt` will fail during module initialization. To check
-the availability of this library, you can go to
-`$IPOPT_DIR/Ipopt/examples/hs071_c/`
-and issue `make` to ensure you can compile and run the toy example
-supplied by `Ipopt`. 
-
-### Miscellaneous problems
-
-* Error:
-  ```python
-  import ipyopt
-  ```
-  ```
-  ImportError: can not find  libipopt.so.0
-  ```
-
-* Solution:
-  find it and copy it to a folder that ld can access
-
-* Error:
-  ```python
-  import ipyopt
-  ```
-  ```
-  ImportError: /usr/lib/libipopt.so.0: undefined symbol: _gfortran_XXX
-  ```
-
-* Solution: 
-  check if your `hs071_c` example work. It is very likely that your
-  ipopt library is not correctly compiled.
-
-* Error:
-  ```python
-  import ipyopt
-  ```
-  ```
-  ImportError: /usr/lib/libipopt.so.0: undefined symbol: SetIntermediateCallback
-  ```
-
-* Solution:
-  SetIntermediateCallback is a function added since Ipopt 3.9.1.
-  (see https://projects.coin-or.org/Ipopt/changeset/1830 )
-  Make sure you have an Ipopt version >= 3.9.1
-
-* Error:
-  ```python
-  import ipyopt
-  ```
-  ```
-  ImportError: /usr/lib/libipopt.so.0: undefined symbol: ma19ad_
-  ```
-
-* Solution:
-  First, use 
-  ```sh
-  nm /usr/lib/libipopt.so.0 | grep ma19ad_ 
-  ```
-  to see if it is marked with U. It should. This means that
-  `libipopt.so.0` is not aware of `libcoinhsl.so.0`. You can fix this by
-  adding `-lcoinhsl` to the `CFLAGS` variable (see section install). It seems to me that
-  this happens in the recent versions of `ipopt`. Eventually `IPyOpt`
-  will have a better building mechanism, and I will fix this soon. 
-
-* Error:
-  ```python
-  import ipyopt
-  ```
-  ```
-  ImportError: /usr/lib/libipopt.so.0: undefined symbol: SomeKindOfSymbol
-  ```
-	
-* Solution:
-  I can assure you that it is NOT a bug of `IPyOpt`. It is very
-  likely that you did not link the right package when compiling
-  `IPyOpt`. 
-	
-  First, use 
-  ```sh
-  nm /usr/lib/libipopt.so.0 | grep SomeKindOfSymbol
-  ```
-  to see if this symbol is indeed missing. Do a Google search to find the library file, and 
-  add `-lWhateverLibrary` to the `CFLAGS` variable (see section install). 
-	
-  Ipopt is built using various third-party libraries. Different
-  machines may have different set of libraries. You should 
-  try to locate these dependencies and indicate them when compiling
-  `IPyOpt`. This is just a limitation of dynamic linking libraries
-  and is not related to `IPyOpt`. Please do not report a missing symbol
-  error as a "bug" to me unless you are 100% sure it is the problem
-  of `IPyOpt`.
-	
-
-## Contact
-
-Gerhard Bräunlich <g.braeunlich@disroot.org>
-
 ## Credits
 * Modifications on logger made by OpenMDAO at NASA Glenn Research Center, 2010 and 2011
 * Added "eval_intermediate_callback" by OpenMDAO at NASA Glenn Research Center, 2010 and 2011
 * Modifications on the SAFE_FREE macro made by Guillaume Jacquenot, 2012
 * Changed logger from code contributed by alanfalloon
+* Originally developed by Eric Xu when he was a PhD student at
+[Washington University](https://wustl.edu/) and issued under the BSD
+license. Original repository: [xuy/pyipopt](https://github.com/xuy/pyipopt).

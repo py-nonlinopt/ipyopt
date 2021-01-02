@@ -1,0 +1,4 @@
+# © 2020 ETH Zurich, Mechanics and Materials Lab
+
+BasedOnStyle: LLVM
+ReflowComments: false

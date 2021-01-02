@@ -1,4 +1,4 @@
-FROM quay.io/pypa/manylinux1_x86_64
+FROM quay.io/pypa/manylinux2014_x86_64
 
 ARG BLAS_VERSION=3.8.0
 ARG LAPACK_VERSION=3.4.2
