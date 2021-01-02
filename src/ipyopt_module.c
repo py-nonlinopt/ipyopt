@@ -134,17 +134,10 @@ static Bool set_options(IpoptProblem nlp, PyObject *dict) {
   return TRUE;
 }
 
-static Bool check_argument(PyObject *obj, Bool (*check)(PyObject*),
-			   void *err, const char *fmt, ...) {
-  if((*check)(obj)) return TRUE;
-  va_list ap;
-  va_start(ap, fmt);
-  PyErr_Format(err, fmt, ap);
-  va_end(ap);
+static Bool check_callback(PyObject *obj, const char *name) {
+  if(PyCallable_Check(obj)) return TRUE;
+  PyErr_Format(PyExc_TypeError, "Need a callable object for callback function %s", name);
   return FALSE;
-}
-static Bool check_callback(PyObject *callback, const char *name) {
-  return check_argument(callback, PyCallable_Check, PyExc_TypeError, "Need a callable object for callback function %s", name);
 }
 
 static Bool check_no_args(const char* f_name, PyObject *args) {
