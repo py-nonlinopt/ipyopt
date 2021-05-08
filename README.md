@@ -47,6 +47,14 @@ nlp.solve(...)
 
 For an example, see [examples/hs071.py](examples/hs071.py).
 
+For maximal performance, there is also support for [PyCapsules](https://docs.python.org/3/c-api/capsule.html) /
+[scipy.LowLevelCallable](https://docs.scipy.org/doc/scipy/reference/generated/scipy.LowLevelCallable.html). By
+using this approach, there will be no C++ <-> Python interactions
+during IPopt optimization. Here is an example
+[test/c_capsules/](test/c_capsules) (C code) and
+[test/test_ipyopt.py](test/test_ipyopt.py) (Python code using the
+PyCapsules provided by the C code).
+
 `IPyOpt` as a module comes with docstring. You can poke around 
 it by using Python's `help()` command.
 

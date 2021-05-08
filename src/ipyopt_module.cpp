@@ -2,6 +2,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL ipyopt_ARRAY_API
 #include "numpy/arrayobject.h"
 
+#include "nlp_builder.hpp"
 #include "py_helpers.hpp"
 #include "py_nlp.hpp"
 
@@ -87,13 +88,6 @@ static bool parse_sparsity_indices(PyObject *obj, SparsityIndices &idx) {
   idx = std::make_tuple(row, col);
   return true;
 }
-static bool check_callback(PyObject *obj, const char *name) {
-  if (PyCallable_Check(obj))
-    return true;
-  PyErr_Format(PyExc_TypeError,
-               "Need a callable object for callback function %s", name);
-  return false;
-}
 static bool check_non_negative(int n, const char *name) {
   if (n >= 0)
     return true;
@@ -162,6 +156,88 @@ static int parse_vec(PyObject *obj, void *out) {
   }
   return 1;
 }
+
+template <const char *ArgName, class LLC>
+static bool parse_py_capsule(PyObject *obj, LLC &llc) {
+  const auto name = PyCapsule_GetName(obj);
+  if (!PyCapsule_IsValid(obj, name)) {
+    PyErr_Format(PyExc_ValueError,
+                 "%s() argument %s: invalid PyCapsule with name '%s'", "%s",
+                 ArgName, (name != nullptr) ? name : "");
+    return false;
+  }
+  llc.function =
+      (typename LLC::FunctionType *)(PyCapsule_GetPointer(obj, name));
+  llc.user_data = PyCapsule_GetContext(obj);
+  return true;
+}
+
+/**
+ * Parse a scipy.LowLevelCallable into 2 void pointers.
+ *
+ * A scipy.LowLevelCallable is a sub class of a 3 tuple
+ * Tuple[PyCapsule, Union, Union]
+ * The actual callback is held in slot 0.
+ * This PyCapsule also holds the userdata as its context.
+ *
+ * See https://github.com/scipy/scipy/blob/master/scipy/_lib/_ccallback.py
+ * and https://docs.scipy.org/doc/scipy/reference/generated/scipy.LowLevelCallable.html
+ */
+template <const char *ArgName, class LLC>
+static bool parse_scipy_low_level_callable(PyObject *obj, LLC &llc) {
+  auto capsule = PyTuple_GET_ITEM(obj, 0);
+  if (capsule == nullptr) {
+    PyErr_Format(PyExc_SystemError, "%s() argument '%s': invalid tuple", "%s",
+                 ArgName);
+  }
+  return parse_py_capsule<ArgName, LLC>(capsule, llc);
+}
+
+/// This is for python memory management (parse py object and keep a pointer to the original py object at the same time)
+template <class T> struct WithOwnedPyObject {
+  T callable;
+  PyObject *owned;
+  WithOwnedPyObject() : owned{nullptr} {}
+};
+
+template <const char *ArgName, class Variant, class PyCallable, class CCallable>
+static int parse_callable(PyObject *obj, void *out) {
+  auto &callable = *(WithOwnedPyObject<Variant> *)out;
+  callable.owned = obj;
+  if (PyCapsule_CheckExact(obj)) {
+    CCallable llc;
+    if (!parse_py_capsule<ArgName, CCallable>(obj, llc))
+      return 0;
+    callable.callable = llc;
+    return 1;
+  }
+  if (PyTuple_Check(obj) && PyTuple_Size(obj) == 3) {
+    CCallable llc;
+    if (!parse_scipy_low_level_callable<ArgName, CCallable>(obj, llc))
+      return 0;
+    callable.callable = llc;
+    return 1;
+  }
+
+  if (PyCallable_Check(obj)) {
+    callable.callable = PyCallable{obj};
+    return 1;
+  }
+  PyErr_Format(PyExc_ValueError,
+               "%s() argument '%s': must be Union[Callable, PyCapsule, "
+               "scipy.LowLevelCallable], not %s",
+               "%s", ArgName, Py_TYPE(obj)->tp_name);
+  return 0;
+}
+
+using PyConverter = int(PyObject *, void *);
+template <PyConverter converter>
+static int parse_optional(PyObject *obj, void *out) {
+  if (obj == nullptr || obj == Py_None)
+    return 1;
+  return converter(obj, out);
+}
+
 static std::optional<IpoptOptionValue> py_unpack(PyObject *obj) {
   if (PyLong_Check(obj))
     return (int)PyLong_AsLong(obj);
@@ -320,12 +396,12 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
   PyObject *py_sparsity_indices_h = nullptr;
   PyObject *py_ipopt_options = nullptr;
   std::vector<double> x_scaling, g_scaling, x_l, x_u, g_l, g_u;
-  PyObject *py_eval_f = nullptr;
-  PyObject *py_eval_grad_f = nullptr;
-  PyObject *py_eval_g = nullptr;
-  PyObject *py_eval_jac_g = nullptr;
-  PyObject *py_eval_h = nullptr;
-  PyObject *py_intermediate_callback = nullptr;
+  WithOwnedPyObject<FCallable> py_eval_f;
+  WithOwnedPyObject<GradFCallable> py_eval_grad_f;
+  WithOwnedPyObject<GCallable> py_eval_g;
+  WithOwnedPyObject<JacGCallable> py_eval_jac_g;
+  WithOwnedPyObject<HCallable> py_eval_h;
+  WithOwnedPyObject<IntermediateCallbackCallable> py_intermediate_callback;
   SparsityIndices sparsity_indices_jac_g, sparsity_indices_h;
   const char *arg_names[] = {"n",
                              "x_l",
@@ -348,31 +424,43 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
                              nullptr};
   if (!PyArg_ParseTupleAndKeywords(
           args, keywords,
-          "iO&O&iO&O&OOOOOO|OOdO&O&O:%s", // function name will be substituted later
+          "iO&O&iO&O&OOO&O&O&O&|O&O&dO&O&O:%s", // function name will be substituted later
           const_cast<char **>(arg_names), &n,
           &parse_vec<arg_x_l, false, double>, &x_l,
           &parse_vec<arg_x_u, false, double>, &x_u, &m,
           &parse_vec<arg_g_l, false, double>, &g_l,
           &parse_vec<arg_g_u, false, double>, &g_u, &py_sparsity_indices_jac_g,
-          &py_sparsity_indices_h, &py_eval_f, &py_eval_grad_f, &py_eval_g,
-          &py_eval_jac_g, &py_eval_h, &py_intermediate_callback, &obj_scaling,
+          &py_sparsity_indices_h,
+          &parse_callable<arg_f, FCallable, ipyopt::py::F, ipyopt::c::F>,
+          &py_eval_f,
+          &parse_callable<arg_grad_f, GradFCallable, ipyopt::py::GradF,
+                          ipyopt::c::GradF>,
+          &py_eval_grad_f,
+          &parse_callable<arg_g, GCallable, ipyopt::py::G, ipyopt::c::G>,
+          &py_eval_g,
+          &parse_callable<arg_jac_g, JacGCallable, ipyopt::py::JacG,
+                          ipyopt::c::JacG>,
+          &py_eval_jac_g,
+          &parse_optional<
+              parse_callable<arg_h, HCallable, ipyopt::py::H, ipyopt::c::H>>,
+          &py_eval_h,
+          &parse_optional<parse_callable<arg_intermediate_callback,
+                                         IntermediateCallbackCallable,
+                                         ipyopt::py::IntermediateCallback,
+                                         ipyopt::c::IntermediateCallback>>,
+          &py_intermediate_callback, &obj_scaling,
           &parse_vec<arg_x_scaling, true, double>, &x_scaling,
           &parse_vec<arg_g_scaling, true, double>, &g_scaling,
           &py_ipopt_options) ||
       !parse_sparsity_indices(py_sparsity_indices_jac_g,
                               sparsity_indices_jac_g) ||
-      !check_callback(py_eval_f, "eval_f") ||
-      !check_callback(py_eval_grad_f, "eval_grad_f") ||
-      !check_callback(py_eval_g, "eval_g") ||
-      !check_callback(py_eval_jac_g, "eval_jac_g") ||
       !check_non_negative(n, "n") || !check_non_negative(m, "m") ||
       !check_vec_size<double, false>(x_l, n, "%s() argument x_L") ||
       !check_vec_size<double, false>(x_u, n, "%s() argument x_U") ||
       !check_vec_size<double, false>(g_l, m, "%s() argument g_L") ||
       !check_vec_size<double, false>(g_u, m, "%s() argument g_U") ||
-      !(py_eval_h == nullptr ||
-        (check_callback(py_eval_h, "h") &&
-         parse_sparsity_indices(py_sparsity_indices_h, sparsity_indices_h))) ||
+      !(is_null(py_eval_h.callable) ||
+        parse_sparsity_indices(py_sparsity_indices_h, sparsity_indices_h)) ||
       !check_optional(py_ipopt_options, _PyDict_Check, "ipopt_options",
                       "Optional[dict]]") ||
       !check_vec_size<double, true>(x_scaling, n, "%s() argument x_scaling") ||
@@ -388,32 +476,26 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
   }
 
   PyObject *owned_py_objects[max_owned_py_objects] = {
-      py_eval_f,     py_eval_grad_f, py_eval_g,
-      py_eval_jac_g, py_eval_h,      py_intermediate_callback};
+      py_eval_f.owned, py_eval_grad_f.owned,
+      py_eval_g.owned, py_eval_jac_g.owned,
+      py_eval_h.owned, py_intermediate_callback.owned};
   for (std::size_t i = 0; i < max_owned_py_objects; i++) {
     self->owned_py_objects[i] = owned_py_objects[i];
     if (owned_py_objects[i] != nullptr)
       Py_XINCREF(owned_py_objects[i]);
   }
-  auto nlp =
-      new NlpBase{ipyopt::py::F{py_eval_f},
-                  ipyopt::py::GradF{py_eval_grad_f},
-                  ipyopt::py::G{py_eval_g},
-                  ipyopt::py::JacG{py_eval_jac_g},
-                  std::move(sparsity_indices_jac_g),
-                  ipyopt::py::H{py_eval_h},
-                  std::move(sparsity_indices_h),
-                  ipyopt::py::IntermediateCallback{py_intermediate_callback},
-                  std::move(x_l),
-                  std::move(x_u),
-                  std::move(g_l),
-                  std::move(g_u)};
-  self->nlp = nlp;
+  Ipopt::TNLP *nlp;
+  std::tie(nlp, self->nlp) =
+      build_nlp(py_eval_f.callable, py_eval_grad_f.callable, py_eval_g.callable,
+                py_eval_jac_g.callable, std::move(sparsity_indices_jac_g),
+                py_eval_h.callable, std::move(sparsity_indices_h),
+                py_intermediate_callback.callable, std::move(x_l),
+                std::move(x_u), std::move(g_l), std::move(g_u));
   self->bundle->take_nlp(nlp);
   self->nlp->_x_scaling = std::move(x_scaling);
   self->nlp->_g_scaling = std::move(g_scaling);
   self->nlp->_obj_scaling = obj_scaling;
-  if (py_eval_h == nullptr)
+  if (is_null(py_eval_h.callable))
     self->bundle->without_hess();
   return (PyObject *)self;
 }

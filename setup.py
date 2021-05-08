@@ -30,7 +30,9 @@ def main():
                     "src/nlp_base.cpp",
                 ],
                 depends=[
+                    "src/c_nlp.hpp",
                     "src/nlp_base.hpp",
+                    "src/nlp_builder.hpp",
                     "src/py_helpers.hpp",
                     "src/py_nlp.hpp",
                 ],

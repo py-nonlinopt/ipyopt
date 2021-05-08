@@ -72,8 +72,6 @@ bool IntermediateCallback::operator()(
     Ipopt::Number alpha_du, Ipopt::Number alpha_pr, Ipopt::Index ls_trials,
     const Ipopt::IpoptData * /*ip_data*/,
     Ipopt::IpoptCalculatedQuantities * /*ip_cq*/) {
-  if (_obj == nullptr)
-    return true;
   PyObject *result = py_call(
       _obj, PyLong_FromLong(mode), PyLong_FromLong(iter),
       PyFloat_FromDouble(obj_value), PyFloat_FromDouble(inf_pr),
