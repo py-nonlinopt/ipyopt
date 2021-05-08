@@ -299,5 +299,14 @@ public:
   void without_hess();
 };
 
+struct IpoptOption {
+  enum Type { Number, Integer, String, Unknown };
+  std::string name;
+  Type type;
+  std::string description_short;
+  std::string description_long;
+  std::string category;
+};
 
+std::vector<IpoptOption> get_ipopt_options();
 #endif

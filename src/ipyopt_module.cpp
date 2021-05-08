@@ -590,6 +590,52 @@ static PyObject *py_set_problem_scaling(PyObject *self, PyObject *args,
   Py_RETURN_NONE;
 }
 
+static void dict_add_str(PyObject *dict, const char *key, const char *val) {
+  auto str = PyUnicode_FromString(val);
+  PyDict_SetItemString(dict, key, str);
+}
+
+static PyObject *py_ipopt_type(IpoptOption::Type t) {
+  switch (t) {
+  case IpoptOption::Integer:
+    return (PyObject *)&PyLong_Type;
+  case IpoptOption::Number:
+    return (PyObject *)&PyFloat_Type;
+  case IpoptOption::String:
+    return (PyObject *)&PyUnicode_Type;
+  default:
+    return Py_None;
+  }
+}
+
+static char GET_IPOPT_OPTIONS_DOC[] = R"mdoc(
+get_ipopt_options() -> list[str, dict]
+
+Get a list of all IPOpt options.
+The items of the returned list are dicts, containing the fields:
+  "name": str
+  "type": Union[Type[int], Type[float], Type[str], None]
+  "description_short": str
+  "description_long": str
+  "category": str
+)mdoc";
+
+static PyObject *py_get_ipopt_options(PyObject *, PyObject *) {
+  const auto options = get_ipopt_options();
+  auto lst = PyList_New(options.size());
+  auto i = std::size_t{0};
+  for (const auto &opt : options) {
+    auto dict = PyDict_New();
+    dict_add_str(dict, "name", opt.name.data());
+    PyDict_SetItemString(dict, "type", py_ipopt_type(opt.type));
+    dict_add_str(dict, "description_short", opt.description_short.data());
+    dict_add_str(dict, "description_long", opt.description_long.data());
+    dict_add_str(dict, "category", opt.category.data());
+    PyList_SET_ITEM(lst, i++, dict);
+  }
+  Py_XINCREF(lst);
+  return lst;
+}
 // Begin Python Module code section
 
 static struct PyModuleDef moduledef = {
@@ -597,7 +643,9 @@ static struct PyModuleDef moduledef = {
     .m_name = "ipyopt",
     .m_doc = "A hook between Ipopt and Python",
     .m_size = -1,
-    .m_methods = (PyMethodDef[]){{nullptr, nullptr, 0, nullptr}},
+    .m_methods = (PyMethodDef[]){{"get_ipopt_options", py_get_ipopt_options,
+                                  METH_NOARGS, GET_IPOPT_OPTIONS_DOC},
+                                 {nullptr, nullptr, 0, nullptr}},
     .m_slots = nullptr,
     .m_traverse = nullptr,
     .m_clear = nullptr,

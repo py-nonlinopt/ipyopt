@@ -239,3 +239,10 @@ class TestIPyOpt(unittest.TestCase):
 @unittest.skipIf(c_capsules is None, "c_capsules not built")
 class TestIPyOptC(TestIPyOpt):
     function_set = c_capsules
+
+
+class TestGetIpoptOptions(unittest.TestCase):
+    def test_get_ipopt_options(self):
+        self.assertTrue(
+            "print_level" in {opt["name"] for opt in ipyopt.get_ipopt_options()}
+        )

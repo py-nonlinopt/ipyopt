@@ -49,3 +49,28 @@ bool NlpBundle::set_option(const char *key, const IpoptOptionValue &value) {
 void NlpBundle::without_hess() {
   _app->Options()->SetStringValue("hessian_approximation", "limited-memory");
 }
+
+static IpoptOption::Type from_ipopt(const Ipopt::RegisteredOptionType &type) {
+  switch (type) {
+  case Ipopt::OT_Number:
+    return IpoptOption::Number;
+  case Ipopt::OT_Integer:
+    return IpoptOption::Integer;
+  case Ipopt::OT_String:
+    return IpoptOption::String;
+  default:
+    return IpoptOption::Unknown;
+  }
+}
+
+std::vector<IpoptOption> get_ipopt_options() {
+  const auto app = IpoptApplicationFactory();
+  const auto options = app->RegOptions()->RegisteredOptionsList();
+  auto out = std::vector<IpoptOption>{};
+  for (const auto &[key, value] : options) {
+    out.push_back(IpoptOption{
+        value->Name(), from_ipopt(value->Type()), value->ShortDescription(),
+        value->LongDescription(), value->RegisteringCategory()});
+  }
+  return out;
+}
