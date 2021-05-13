@@ -594,6 +594,10 @@ static void dict_add_str(PyObject *dict, const char *key, const char *val) {
   auto str = PyUnicode_FromString(val);
   PyDict_SetItemString(dict, key, str);
 }
+static void dict_add_int(PyObject *dict, const char *key, int val) {
+  auto str = PyLong_FromLong(val);
+  PyDict_SetItemString(dict, key, str);
+}
 
 static PyObject *py_ipopt_type(IpoptOption::Type t) {
   switch (t) {
@@ -636,6 +640,22 @@ static PyObject *py_get_ipopt_options(PyObject *, PyObject *) {
   Py_XINCREF(lst);
   return lst;
 }
+
+PyObject *py_get_stats(PyObject *self, void *) {
+  auto dict = PyDict_New();
+  auto nlp = ((PyNlpApp *)self)->nlp;
+  dict_add_int(dict, "n_eval_f", nlp->out_stats.n_eval_f);
+  dict_add_int(dict, "n_eval_grad_f", nlp->out_stats.n_eval_grad_f);
+  dict_add_int(dict, "n_eval_g_eq", nlp->out_stats.n_eval_g_eq);
+  dict_add_int(dict, "n_eval_jac_g_eq", nlp->out_stats.n_eval_jac_g_eq);
+  dict_add_int(dict, "n_eval_g_ineq", nlp->out_stats.n_eval_g_ineq);
+  dict_add_int(dict, "n_eval_jac_g_ineq", nlp->out_stats.n_eval_jac_g_ineq);
+  dict_add_int(dict, "n_eval_h", nlp->out_stats.n_eval_h);
+  dict_add_int(dict, "n_iter", nlp->out_stats.n_iter);
+  Py_XINCREF(dict);
+  return dict;
+}
+
 // Begin Python Module code section
 
 static struct PyModuleDef moduledef = {
@@ -690,7 +710,9 @@ PyTypeObject IPyOptProblemType = {
     .tp_iternext = 0,
     .tp_methods = problem_methods,
     .tp_members = 0,
-    .tp_getset = 0,
+    .tp_getset = (PyGetSetDef[]){{"stats", py_get_stats, nullptr,
+                                  "Stats about an optimization run", nullptr},
+                                 {nullptr, nullptr, nullptr, nullptr, nullptr}},
     .tp_base = 0,
     .tp_dict = 0,
     .tp_descr_get = 0,

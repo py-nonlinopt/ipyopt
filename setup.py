@@ -15,15 +15,16 @@ def main():
     setup(
         name="ipyopt",
         version=__version__,
-        description="An IPOpt connector for Python",
+        description="IPOpt connector for Python",
         long_description=open("README.md").read(),
         long_description_content_type="text/markdown",
         author="Gerhard Bräunlich",
         author_email="g.braeunlich@disroot.org",
-        url="https://github.com/g-braeunlich/ipyopt",
+        url="https://gitlab.com/g-braeunlich/ipyopt",
+        packages=["ipyopt"],
         ext_modules=[
             Extension(
-                "ipyopt",
+                "ipyopt.ipyopt",
                 sources=[
                     "src/ipyopt_module.cpp",
                     "src/py_nlp.cpp",

@@ -4,9 +4,11 @@ from typing import Any
 
 import numpy
 import ipyopt
+import ipyopt.optimize
 
 try:
     import scipy
+    import scipy.optimize
 except ImportError:
     scipy = None
 try:
@@ -22,25 +24,41 @@ def e_x(n):
     return out
 
 
-def generic_problem(module, with_hess: bool = False, **kwargs):
-    n = module.n
-    eval_jac_g_sparsity_indices = (
+def sparsity_g(n: int):
+    return (
         numpy.zeros(n, dtype=int),
         numpy.arange(n, dtype=int),
     )
-    eval_h_sparsity_indices = (numpy.arange(n, dtype=int), numpy.arange(n, dtype=int))
+
+
+def sparsity_h(n: int):
+    return (numpy.arange(n, dtype=int), numpy.arange(n, dtype=int))
+
+
+def x_L(n: int) -> numpy.ndarray:
+    return numpy.full((n,), -10.0)
+
+
+def x_U(n: int) -> numpy.ndarray:
+    return numpy.full((n,), 10.0)
+
+
+def generic_problem(module, with_hess: bool = False, **kwargs):
+    n = module.n
+    eval_jac_g_sparsity_indices = sparsity_g(n)
+    eval_h_sparsity_indices = sparsity_h(n)
     if with_hess:
         kwargs["eval_h"] = module.h
-    x_L = numpy.full((n,), -10.0)
-    x_U = numpy.full((n,), 10.0)
+    _x_L = x_L(n)
+    _x_U = x_U(n)
 
     g_L = numpy.array([0.0])
     g_U = numpy.array([4.0])
 
     p = ipyopt.Problem(
         n,
-        x_L,
-        x_U,
+        _x_L,
+        _x_U,
         1,
         g_L,
         g_U,
@@ -92,33 +110,73 @@ def PyModule(_n, wrap_eval_h=lambda f: f):
     return _PyModule
 
 
-class _TestSimpleProblem(unittest.TestCase):
-    function_set: Any = None
+class Base:
+    """Just a wrapper "namespace" to prevent discovery / running of the base test case"""
 
-    def setUp(self):
-        n = self.function_set.n
-        self.x0 = numpy.full((n,), 0.1)
-        self.zl = numpy.zeros(n)
-        self.zu = numpy.zeros(n)
-        self.constraint_multipliers = numpy.zeros(1)
-        self.n = n
+    class TestSimpleProblem(unittest.TestCase):
+        function_set: Any = None
 
-    def _solve(self, **kwargs):
-        p = generic_problem(self.function_set, **kwargs)
-        x, obj, status = p.solve(
-            self.x0,
-            mult_g=self.constraint_multipliers,
-            mult_x_L=self.zl,
-            mult_x_U=self.zu,
-        )
-        numpy.testing.assert_array_almost_equal(x, numpy.zeros(self.n))
-        numpy.testing.assert_array_almost_equal(obj, 0.0)
-        numpy.testing.assert_array_equal(status, 0)
+        def setUp(self):
+            n = self.function_set.n
+            self.x0 = numpy.full((n,), 0.1)
+            self.zl = numpy.zeros(n)
+            self.zu = numpy.zeros(n)
+            self.constraint_multipliers = numpy.zeros(1)
+            self.n = n
+
+        def _solve(self, **kwargs):
+            p = generic_problem(self.function_set, **kwargs)
+            x, obj, status = p.solve(
+                self.x0,
+                mult_g=self.constraint_multipliers,
+                mult_x_L=self.zl,
+                mult_x_U=self.zu,
+            )
+            numpy.testing.assert_array_almost_equal(x, numpy.zeros(self.n))
+            numpy.testing.assert_array_almost_equal(obj, 0.0)
+            numpy.testing.assert_array_equal(status, 0)
+
+        def test_optimize(self):
+            n = self.function_set.n
+            result = scipy.optimize.minimize(
+                fun=self.function_set.f,
+                x0=self.x0,
+                method=ipyopt.optimize.ipopt,
+                jac=ipyopt.optimize.JacEnvelope(self.function_set.grad_f),
+                hess=self.function_set.h,
+                bounds=[(l, u) for l, u in zip(x_L(n), x_U(n))],
+                constraints=ipyopt.optimize.Constraint(
+                    fun=self.function_set.g,
+                    jac=self.function_set.jac_g,
+                    lb=numpy.array([0.0]),
+                    ub=numpy.array([4.0]),
+                    jac_sparsity_indices=sparsity_g(n),
+                ),
+                options=dict(
+                    hess_sparsity_indices=sparsity_h(n),
+                ),
+            )
+            numpy.testing.assert_array_almost_equal(result.x, numpy.zeros(self.n))
+            numpy.testing.assert_array_almost_equal(result.fun, 0.0)
+            numpy.testing.assert_array_equal(result.status, 0)
+            numpy.testing.assert_array_equal(result.success, True)
+            self.assertTrue(result.nfev > 0)
+            self.assertTrue(result.njev > 0)
+            self.assertTrue(result.nit > 0)
 
 
 @unittest.skipIf(c_capsules is None, "c_capsules not built")
-class TestSimpleProblem(_TestSimpleProblem):
+class TestSimpleProblem(Base.TestSimpleProblem):
     function_set = c_capsules
+
+    def setUp(self):
+        super().setUp()
+        c_capsules.capsule_set_context(c_capsules.h, None)
+        c_capsules.capsule_set_context(c_capsules.intermediate_callback, None)
+
+    def tearDown(self):
+        c_capsules.capsule_set_context(c_capsules.h, None)
+        c_capsules.capsule_set_context(c_capsules.intermediate_callback, None)
 
     def test_simple_problem(self):
         for with_hess in (True, False):
@@ -138,7 +196,7 @@ class TestSimpleProblem(_TestSimpleProblem):
 @unittest.skipIf(
     c_capsules is None or scipy is None, "c_capsules not built or scipy not available"
 )
-class TestSimpleProblemScipy(_TestSimpleProblem):
+class TestSimpleProblemScipy(Base.TestSimpleProblem):
     def setUp(self):
         class ScipyModule:
             n = c_capsules.n
@@ -160,7 +218,7 @@ class TestSimpleProblemScipy(_TestSimpleProblem):
                 self._solve(with_hess=with_hess)
 
 
-class TestSimpleProblemPy(_TestSimpleProblem):
+class TestSimpleProblemPy(Base.TestSimpleProblem):
     def setUp(self):
         self.function_set = PyModule(_n=4, wrap_eval_h=lambda f: mock.Mock(wraps=f))
         super().setUp()

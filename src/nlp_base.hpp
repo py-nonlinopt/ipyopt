@@ -2,6 +2,9 @@
 #define _NLP_BASE_H_
 
 #include "IpIpoptApplication.hpp"
+#include "IpIpoptCalculatedQuantities.hpp"
+#include "IpIpoptData.hpp"
+#include "IpOrigIpoptNLP.hpp"
 #include "IpTNLP.hpp"
 
 #include <variant>
@@ -13,6 +16,27 @@ using IpoptOptionValue = std::variant<int, double, char *>;
 void arr_copy(const double *src, double *dest, std::size_t n);
 void copy_sparsity(const SparsityIndices &sparsity_indices, Ipopt::Index *iRow,
                    Ipopt::Index *jCol);
+
+/**
+ * @brief Struct holding stats about an optimization run.
+ */
+struct NlpStats {
+  Ipopt::Number n_eval_f;
+  Ipopt::Number n_eval_grad_f;
+  Ipopt::Number n_eval_g_eq;
+  Ipopt::Number n_eval_jac_g_eq;
+  Ipopt::Number n_eval_g_ineq;
+  Ipopt::Number n_eval_jac_g_ineq;
+  Ipopt::Number n_eval_h;
+  Ipopt::Number n_iter;
+  inline NlpStats()
+      : n_eval_f{-1}, n_eval_grad_f{-1}, n_eval_g_eq{-1}, n_eval_jac_g_eq{-1},
+        n_eval_g_ineq{-1}, n_eval_jac_g_ineq{-1}, n_eval_h{-1}, n_iter{-1} {}
+};
+
+/**
+ * @brief Data only part of an IPopt NLP.
+ */
 class NlpData {
 protected:
   Ipopt::Index _n, _m;
@@ -26,6 +50,7 @@ protected:
 public:
   const Ipopt::Index &n, &m;
   const Ipopt::Number &out_obj_value;
+  NlpStats out_stats;
 
   std::vector<Ipopt::Number> _x_scaling, _g_scaling;
   Ipopt::Number _obj_scaling;
@@ -35,7 +60,7 @@ public:
 };
 
 /**
- * @brief Python interface for a problem with IPOPT.
+ * @brief IPOpt NLP templated interface, exposing generic callables.
  */
 template <class F, class GradF, class G, class JacG, class H,
           class IntermediateCb>
@@ -242,9 +267,8 @@ public:
                                  const Ipopt::Number *g,
                                  const Ipopt::Number *lambda,
                                  Ipopt::Number obj_value,
-                                 const Ipopt::IpoptData *, //           ip_data,
-                                 Ipopt::IpoptCalculatedQuantities * // ip_cq
-  ) {
+                                 const Ipopt::IpoptData *ip_data,
+                                 Ipopt::IpoptCalculatedQuantities *ip_cq) {
     if (_out_x != nullptr)
       arr_copy(x, _out_x, n);
     if (_out_z_L != nullptr)
@@ -256,6 +280,18 @@ public:
     if (_out_lambda != nullptr)
       arr_copy(lambda, _out_lambda, m);
     _out_obj_value = obj_value;
+    if (ip_cq != NULL) {
+      auto orignlp =
+          dynamic_cast<Ipopt::OrigIpoptNLP *>(GetRawPtr(ip_cq->GetIpoptNLP()));
+      out_stats.n_eval_f = orignlp->f_evals();
+      out_stats.n_eval_grad_f = orignlp->grad_f_evals();
+      out_stats.n_eval_g_eq = orignlp->c_evals();
+      out_stats.n_eval_jac_g_eq = orignlp->jac_c_evals();
+      out_stats.n_eval_g_ineq = orignlp->d_evals();
+      out_stats.n_eval_jac_g_ineq = orignlp->jac_d_evals();
+      out_stats.n_eval_h = orignlp->h_evals();
+      out_stats.n_iter = ip_data->iter_count();
+    }
   }
 
   //@}
