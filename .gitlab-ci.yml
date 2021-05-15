@@ -22,6 +22,14 @@ build:
       - dist/ipyopt-*manylinux*.whl
       - dist/ipyopt-*.tar.gz
 
+black:
+  stage: test
+  image: python:3
+  before_script:
+    - pip install black
+  script:
+    - black --check .
+
 test-examples:
   stage: test
   before_script:

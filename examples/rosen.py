@@ -51,8 +51,10 @@ def eval_h(X, _lagrange, obj_factor, out):
 
 
 # there are maximum nonzeros (nvar*(nvar+1))/2 in the lagrangian hessian
-eval_h.sparsity_indices = (numpy.array([0, 1, 1], dtype=int),
-                           numpy.array([0, 0, 1], dtype=int))
+eval_h.sparsity_indices = (
+    numpy.array([0, 1, 1], dtype=int),
+    numpy.array([0, 0, 1], dtype=int),
+)
 
 
 def main():
@@ -94,5 +96,5 @@ def main():
     print(results)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

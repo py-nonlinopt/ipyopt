@@ -27,90 +27,117 @@ g_U = numpy.full((ncon,), _g_u)
 
 x0 = numpy.empty((nvar,))
 x0[0::2] = -1.2
-x0[1::2] = 1.
+x0[1::2] = 1.0
 
 
 def eval_f(x):
     assert len(x) == nvar
-    return (100. * numpy.sum((x[:-1]**2 - x[1:])**2) +
-            numpy.sum((x[:-1] - 1.)**2))
+    return 100.0 * numpy.sum((x[:-1] ** 2 - x[1:]) ** 2) + numpy.sum(
+        (x[:-1] - 1.0) ** 2
+    )
 
 
 def eval_grad_f(x, out):
     assert len(x) == nvar
-    out[0] = 0.
-    h = (x[:-1]**2 - x[1:])
-    out[1:] = -200.* h
-    out[:-1] += 400.* x[:-1]*h + 2.*(x[:-1] - 1.)
+    out[0] = 0.0
+    h = x[:-1] ** 2 - x[1:]
+    out[1:] = -200.0 * h
+    out[:-1] += 400.0 * x[:-1] * h + 2.0 * (x[:-1] - 1.0)
     return out
 
 
 def eval_g(x, out):
     assert len(x) == nvar
-    out[()] = (3. * x[1:-1]**3 + 2. * x[2:] - 5.
-              + numpy.sin(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
-              + 4. * x[1:-1]
-              - x[:-2] * numpy.exp(x[:-2] - x[1:-1]) - 3.)
+    out[()] = (
+        3.0 * x[1:-1] ** 3
+        + 2.0 * x[2:]
+        - 5.0
+        + numpy.sin(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
+        + 4.0 * x[1:-1]
+        - x[:-2] * numpy.exp(x[:-2] - x[1:-1])
+        - 3.0
+    )
     return out
 
 
 def eval_jac_g(x, out):
     assert len(x) == nvar
-    out[::3] = -(1. + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
+    out[::3] = -(1.0 + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
     out[1::3] = (
-        9. * x[1:-1]**2
+        9.0 * x[1:-1] ** 2
         + numpy.cos(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
         + numpy.sin(x[1:-1] - x[2:]) * numpy.cos(x[1:-1] + x[2:])
-        + 4. + x[:-2] * numpy.exp(x[:-2] - x[1:-1])
+        + 4.0
+        + x[:-2] * numpy.exp(x[:-2] - x[1:-1])
     )
     out[2::3] = (
-        2. - numpy.cos(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
+        2.0
+        - numpy.cos(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
         + numpy.sin(x[1:-1] - x[2:]) * numpy.cos(x[1:-1] + x[2:])
     )
     return out
 
+
 eval_jac_g.sparsity_indices = (
-    numpy.repeat(numpy.arange(nvar-2), 3),
-    numpy.array([numpy.arange(nvar-2), numpy.arange(1, nvar-1), numpy.arange(2, nvar)]).T.flatten())
+    numpy.repeat(numpy.arange(nvar - 2), 3),
+    numpy.array(
+        [numpy.arange(nvar - 2), numpy.arange(1, nvar - 1), numpy.arange(2, nvar)]
+    ).T.flatten(),
+)
 # [0, 0, 0, 1, 1, 1, ...]
 # [0, 1, 2, 1, 2, 3, ...]
 
+
 def eval_h(x, lagrange, obj_factor, out):
-    out[-1] = 0.
-    out[:-2:2] = obj_factor * (2. + 400. * (3. * x[:-1] * x[:-1] - x[1:]))
-    out[:-4:2] -= lagrange * (2. + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
-    out[2::2] += obj_factor * 200.
+    out[-1] = 0.0
+    out[:-2:2] = obj_factor * (2.0 + 400.0 * (3.0 * x[:-1] * x[:-1] - x[1:]))
+    out[:-4:2] -= lagrange * (2.0 + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
+    out[2::2] += obj_factor * 200.0
     out[2:-2:2] += lagrange * (
-        18. * x[1:-1]
-        - 2. * numpy.sin(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
-        + 2. * numpy.cos(x[1:-1] - x[2:]) * numpy.cos(x[1:-1] + x[2:])
+        18.0 * x[1:-1]
+        - 2.0 * numpy.sin(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
+        + 2.0 * numpy.cos(x[1:-1] - x[2:]) * numpy.cos(x[1:-1] + x[2:])
         - x[:-2] * numpy.exp(x[:-2] - x[1:-1])
     )
     out[4::2] += lagrange * (
-        -2. * numpy.sin(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
-        - 2. * numpy.cos(x[1:-1] - x[2:]) * numpy.cos(x[1:-1] + x[2:])
+        -2.0 * numpy.sin(x[1:-1] - x[2:]) * numpy.sin(x[1:-1] + x[2:])
+        - 2.0 * numpy.cos(x[1:-1] - x[2:]) * numpy.cos(x[1:-1] + x[2:])
     )
-    out[1::2] = obj_factor * (-400. * x[:-1])
-    out[1:-2:2] += lagrange * (1. + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
+    out[1::2] = obj_factor * (-400.0 * x[:-1])
+    out[1:-2:2] += lagrange * (1.0 + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
     return out
 
 
 eval_h.sparsity_indices = (
-    numpy.repeat(numpy.arange(nvar), 2)[:2*nvar-1],
-    numpy.array([numpy.arange(nvar), numpy.arange(1, nvar+1)]).T.flatten()[:2*nvar-1]
+    numpy.repeat(numpy.arange(nvar), 2)[: 2 * nvar - 1],
+    numpy.array([numpy.arange(nvar), numpy.arange(1, nvar + 1)]).T.flatten()[
+        : 2 * nvar - 1
+    ],
 )
 
 
-nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                     eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g, eval_h)
+nlp = ipyopt.Problem(
+    nvar,
+    x_L,
+    x_U,
+    ncon,
+    g_L,
+    g_U,
+    eval_jac_g.sparsity_indices,
+    eval_h.sparsity_indices,
+    eval_f,
+    eval_grad_f,
+    eval_g,
+    eval_jac_g,
+    eval_h,
+)
 
 print("Going to call solve")
 print("x0 = {}".format(x0))
 zl = numpy.zeros(nvar)
 zu = numpy.zeros(nvar)
 constraint_multipliers = numpy.zeros(ncon)
-_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
-                            mult_x_L=zl, mult_x_U=zu)
+_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
 
 
 def print_variable(variable_name, value):

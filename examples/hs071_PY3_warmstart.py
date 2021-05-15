@@ -56,19 +56,23 @@ def eval_g(x, out):
 
 def eval_jac_g(x, out):
     assert len(x) == nvar
-    out[()] = [x[1] * x[2] * x[3],
-               x[0] * x[2] * x[3],
-               x[0] * x[1] * x[3],
-               x[0] * x[1] * x[2],
-               2.0 * x[0],
-               2.0 * x[1],
-               2.0 * x[2],
-               2.0 * x[3]]
+    out[()] = [
+        x[1] * x[2] * x[3],
+        x[0] * x[2] * x[3],
+        x[0] * x[1] * x[3],
+        x[0] * x[1] * x[2],
+        2.0 * x[0],
+        2.0 * x[1],
+        2.0 * x[2],
+        2.0 * x[3],
+    ]
     return out
 
 
-eval_jac_g.sparsity_indices = (array([0, 0, 0, 0, 1, 1, 1, 1]),
-                               array([0, 1, 2, 3, 0, 1, 2, 3]))
+eval_jac_g.sparsity_indices = (
+    array([0, 0, 0, 0, 1, 1, 1, 1]),
+    array([0, 1, 2, 3, 0, 1, 2, 3]),
+)
 
 
 def eval_h(x, lagrange, obj_factor):
@@ -98,17 +102,30 @@ def eval_h(x, lagrange, obj_factor):
     return values
 
 
-eval_h.sparsity_indices = (array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
-                           array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3]))
+eval_h.sparsity_indices = (
+    array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
+    array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3]),
+)
 
 
 def apply_new(_x):
     return True
 
 
-nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                     eval_h.sparsity_indices,
-                     eval_f, eval_grad_f, eval_g, eval_jac_g)
+nlp = ipyopt.Problem(
+    nvar,
+    x_L,
+    x_U,
+    ncon,
+    g_L,
+    g_U,
+    eval_jac_g.sparsity_indices,
+    eval_h.sparsity_indices,
+    eval_f,
+    eval_grad_f,
+    eval_g,
+    eval_jac_g,
+)
 
 x0 = array([1.0, 5.0, 5.0, 1.0])
 pi0 = array([1.0, 1.0])
@@ -119,8 +136,7 @@ nlp.set(max_iter=4)  # limit the number of max iterations
 zl = zeros(nvar)
 zu = zeros(nvar)
 constraint_multipliers = zeros(ncon)
-_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
-                            mult_x_L=zl, mult_x_U=zu)
+_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
 
 print("Solution of the bound multipliers, z_L and z_U")
 print_variable("z_L", zl)
@@ -130,17 +146,29 @@ print("Solution of the constraint multipliers, lambda")
 print_variable("lambda", constraint_multipliers)
 
 
-nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                     eval_h.sparsity_indices,
-                     eval_f, eval_grad_f, eval_g, eval_jac_g)
-nlp.set(warm_start_init_point='yes',
-        warm_start_bound_push=1e-8,
-        warm_start_slack_bound_push=1e-8,
-        warm_start_mult_bound_push=1e-8,
-        print_level=5)
+nlp = ipyopt.Problem(
+    nvar,
+    x_L,
+    x_U,
+    ncon,
+    g_L,
+    g_U,
+    eval_jac_g.sparsity_indices,
+    eval_h.sparsity_indices,
+    eval_f,
+    eval_grad_f,
+    eval_g,
+    eval_jac_g,
+)
+nlp.set(
+    warm_start_init_point="yes",
+    warm_start_bound_push=1e-8,
+    warm_start_slack_bound_push=1e-8,
+    warm_start_mult_bound_push=1e-8,
+    print_level=5,
+)
 print("Starting at previous solution and solving again")
-_x, obj, status = nlp.solve(_x, mult_g=constraint_multipliers,
-                            mult_x_L=zl, mult_x_U=zu)
+_x, obj, status = nlp.solve(_x, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
 
 print("Solution of the primal variables, x")
 print_variable("x", _x)

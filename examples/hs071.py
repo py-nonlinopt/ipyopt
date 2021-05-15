@@ -50,19 +50,23 @@ def eval_g(x, out):
 
 def eval_jac_g(x, out):
     assert len(x) == nvar
-    out[()] = [x[1] * x[2] * x[3],
-               x[0] * x[2] * x[3],
-               x[0] * x[1] * x[3],
-               x[0] * x[1] * x[2],
-               2.0 * x[0],
-               2.0 * x[1],
-               2.0 * x[2],
-               2.0 * x[3]]
+    out[()] = [
+        x[1] * x[2] * x[3],
+        x[0] * x[2] * x[3],
+        x[0] * x[1] * x[3],
+        x[0] * x[1] * x[2],
+        2.0 * x[0],
+        2.0 * x[1],
+        2.0 * x[2],
+        2.0 * x[3],
+    ]
     return out
 
 
-eval_jac_g.sparsity_indices = (array([0, 0, 0, 0, 1, 1, 1, 1]),
-                               array([0, 1, 2, 3, 0, 1, 2, 3]))
+eval_jac_g.sparsity_indices = (
+    array([0, 0, 0, 0, 1, 1, 1, 1]),
+    array([0, 1, 2, 3, 0, 1, 2, 3]),
+)
 
 
 def eval_h(x, lagrange, obj_factor, out):
@@ -91,12 +95,26 @@ def eval_h(x, lagrange, obj_factor, out):
     return out
 
 
-eval_h.sparsity_indices = (array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
-                           array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3]))
+eval_h.sparsity_indices = (
+    array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
+    array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3]),
+)
 
 
-nlp = ipyopt.Problem(nvar, x_L, x_U, ncon, g_L, g_U, eval_jac_g.sparsity_indices,
-                     eval_h.sparsity_indices, eval_f, eval_grad_f, eval_g, eval_jac_g)
+nlp = ipyopt.Problem(
+    nvar,
+    x_L,
+    x_U,
+    ncon,
+    g_L,
+    g_U,
+    eval_jac_g.sparsity_indices,
+    eval_h.sparsity_indices,
+    eval_f,
+    eval_grad_f,
+    eval_g,
+    eval_jac_g,
+)
 
 x0 = array([1.0, 5.0, 5.0, 1.0])
 
@@ -105,8 +123,8 @@ print("x0 = {}".format(x0))
 zl = zeros(nvar)
 zu = zeros(nvar)
 constraint_multipliers = zeros(ncon)
-_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers,
-                            mult_x_L=zl, mult_x_U=zu)
+_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
+
 
 def print_variable(variable_name, value):
     for i, val in enumerate(value):
