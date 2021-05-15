@@ -82,8 +82,7 @@ during Ipopt optimization. Here is an example
 [test/test_ipyopt.py](test/test_ipyopt.py) (Python code using the
 PyCapsules provided by the C code).
 
-`ipyopt` as a module comes with docstring. You can poke around 
-it by using Python's `help()` command.
+For more details and hints, see the [docs](https://ipyopt.readthedocs.io).
 
 ## Build
 

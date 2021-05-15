@@ -37,7 +37,7 @@ def eval_jac_g(_X, _out):
 
 # define the nonzero slots in the jacobian
 # there are no nonzeros in the constraint jacobian
-eval_jac_g.sparsity_indices = (numpy.array([]), numpy.array([]))
+eval_jac_g_sparsity_indices = (numpy.array([]), numpy.array([]))
 
 
 def eval_h(X, _lagrange, obj_factor, out):
@@ -51,12 +51,12 @@ def eval_h(X, _lagrange, obj_factor, out):
     @param out: The numpy array to write the result values into
     """
     H = scipy.optimize.rosen_hess(X)
-    out[()] = H[eval_h.sparsity_indices] * obj_factor
+    out[()] = H[eval_h_sparsity_indices] * obj_factor
     return out
 
 
 # there are maximum nonzeros (nvar*(nvar+1))/2 in the lagrangian hessian
-eval_h.sparsity_indices = (
+eval_h_sparsity_indices = (
     numpy.array([0, 1, 1], dtype=int),
     numpy.array([0, 0, 1], dtype=int),
 )
@@ -81,8 +81,8 @@ def main():
         ncon,
         g_L,
         g_U,
-        eval_jac_g.sparsity_indices,
-        eval_h.sparsity_indices,
+        eval_jac_g_sparsity_indices,
+        eval_h_sparsity_indices,
         eval_f,
         eval_grad_f,
         eval_g,

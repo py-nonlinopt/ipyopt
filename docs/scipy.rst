@@ -1,7 +1,7 @@
 scipy optimize method
 =====================
 
-ipopt also comes with a method, you can use in
+ipyopt also comes with a ``ipopt`` method for
 `scipy.optimize.minimize`_::
 
     result = scipy.optimize.minimize(
@@ -15,7 +15,7 @@ ipopt also comes with a method, you can use in
 
 .. warning::
 
-   The ipopt method differs in some points from the standard scipy
+   The ``ipopt`` method differs in some points from the standard scipy
    methods:
 
    * The argument ``jac`` is mandatory (explicitly use
@@ -27,6 +27,9 @@ ipopt also comes with a method, you can use in
    * The argument ``constraints`` is mandatory. It is also not a list
      as in usual scipy optimize methods, but a single
      :class:`Constraint` instance.
+
+If you are looking for a solution whose API is closer to the usual
+scipy interface, have a look at `cyipopt <https://github.com/mechmotum/cyipopt>`_.
 
 Module optimize
 ---------------

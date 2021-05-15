@@ -59,7 +59,7 @@ def eval_jac_g(x, out):
     return out
 
 
-eval_jac_g.sparsity_indices = (
+eval_jac_g_sparsity_indices = (
     array([0, 0, 0, 0, 1, 1, 1, 1]),
     array([0, 1, 2, 3, 0, 1, 2, 3]),
 )
@@ -96,7 +96,7 @@ def eval_h(x, lagrange, obj_factor):
     return values
 
 
-eval_h.sparsity_indices = (
+eval_h_sparsity_indices = (
     array([0, 1, 1, 2, 2, 2, 3, 3, 3, 3]),
     array([0, 0, 1, 0, 1, 2, 0, 1, 2, 3]),
 )
@@ -109,8 +109,8 @@ nlp = ipyopt.Problem(
     ncon,
     g_L,
     g_U,
-    eval_jac_g.sparsity_indices,
-    eval_h.sparsity_indices,
+    eval_jac_g_sparsity_indices,
+    eval_h_sparsity_indices,
     eval_f,
     eval_grad_f,
     eval_g,

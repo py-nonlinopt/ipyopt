@@ -30,6 +30,14 @@ black:
   script:
     - black --check .
 
+mypy:
+  stage: test
+  image: quay.io/python-devs/ci-image:latest
+  before_script:
+    - pip install numpy
+  script:
+    - mypy --exclude docs/conf.py .
+
 test-examples:
   stage: test
   before_script:

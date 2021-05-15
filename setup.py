@@ -22,6 +22,8 @@ def main():
         author_email="g.braeunlich@disroot.org",
         url="https://gitlab.com/g-braeunlich/ipyopt",
         packages=["ipyopt"],
+        package_data={"ipyopt": ["py.typed"]},
+        zip_safe=False,
         ext_modules=[
             Extension(
                 "ipyopt.ipyopt",

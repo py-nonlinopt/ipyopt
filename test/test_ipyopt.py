@@ -12,12 +12,16 @@ import ipyopt.optimize
 try:
     import scipy
     import scipy.optimize
+
+    have_scipy = True
 except ImportError:
-    scipy = None
+    have_scipy = True
 try:
     from . import c_capsules
+
+    have_c_capsules = True
 except ImportError:
-    c_capsules = None
+    have_c_capsules = False
 
 
 def e_x(n):
@@ -172,7 +176,7 @@ class Base:
             self.assertTrue(result.nit > 0)
 
 
-@unittest.skipIf(c_capsules is None, "c_capsules not built")
+@unittest.skipIf(not have_c_capsules, "c_capsules not built")
 class TestSimpleProblem(Base.TestSimpleProblem):
     """Test suite for PyCapsule"""
 
@@ -203,7 +207,8 @@ class TestSimpleProblem(Base.TestSimpleProblem):
 
 
 @unittest.skipIf(
-    c_capsules is None or scipy is None, "c_capsules not built or scipy not available"
+    not have_c_capsules or not have_scipy,
+    "c_capsules not built or scipy not available",
 )
 class TestSimpleProblemScipy(Base.TestSimpleProblem):
     """Test suite for scipy.LowLevelCallable"""
@@ -311,7 +316,7 @@ class TestIPyOpt(unittest.TestCase):
                 p.solve(x0)
 
 
-@unittest.skipIf(c_capsules is None, "c_capsules not built")
+@unittest.skipIf(not have_c_capsules, "c_capsules not built")
 class TestIPyOptC(TestIPyOpt):
     """PyCapsule variant of TestIPyOpt"""
 
