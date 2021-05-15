@@ -15,7 +15,7 @@ def main():
     setup(
         name="ipyopt",
         version=__version__,
-        description="IPOpt connector for Python",
+        description="Python interface to Ipopt",
         long_description=open("README.md").read(),
         long_description_content_type="text/markdown",
         author="Gerhard Bräunlich",
@@ -43,6 +43,13 @@ def main():
             )
         ],
         install_requires=["numpy"],
+        classifiers=[
+            "Programming Language :: Python :: 3",
+        ],
+        project_urls={
+            "Documentation": "https://ipyopt.readthedocs.io",
+            "Source": "https://gitlab.com/g-braeunlich/ipyopt",
+        },
     )
 
 
@@ -57,7 +64,7 @@ def get_compiler_flags():
                 "pkg-config not installed or malformed pc file.\n"
                 "Message from pkg-config:\n{}\n\n"
                 "You have to provide setup.py with the include and library "
-                "directories of IPOpt. Example:\n"
+                "directories of Ipopt. Example:\n"
                 "CFLAGS='-I/usr/include/coin/ -l/usr/lib64 "
                 "-lipopt -lmumps_common -ldmumps -lzmumps -lsmumps "
                 "-lcmumps -llapack -lblas -lblas -lblas "

@@ -1,5 +1,7 @@
 #!/bin/env python3
 
+"""Example for optimizing scipy.optimize.rosen"""
+
 import numpy
 import scipy.optimize
 import ipyopt
@@ -11,15 +13,16 @@ def eval_f(X):
 
 
 def eval_grad_f(X, out):
-    """
-    Evaluate the gradient of the objective function f.
-    """
+    """Evaluate the gradient of the objective function f."""
     out[()] = scipy.optimize.rosen_der(X)
     return out
 
 
 def eval_g(_X, _out):
-    """Evaluate the constraint functions."""
+    """Evaluate the constraint functions.
+    Constraints are defined by:
+    g_L <= g(x) <= g_U
+    """
     return
 
 
@@ -38,7 +41,9 @@ eval_jac_g.sparsity_indices = (numpy.array([]), numpy.array([]))
 
 
 def eval_h(X, _lagrange, obj_factor, out):
-    """Evaluate the sparse hessian of the Lagrangian.
+    """Evaluate the sparse hessian of the Lagrangian
+    L = obj_factor * f + <lagrange, g>,
+    where <.,.> denotes the inner product.
 
     @param X: parameter values
     @param lagrange: something about the constraints
@@ -58,7 +63,6 @@ eval_h.sparsity_indices = (
 
 
 def main():
-
     # define the parameters and their box constraints
     nvar = 2
     x_L = numpy.array([-3, -3], dtype=float)

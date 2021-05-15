@@ -173,10 +173,10 @@ static bool parse_py_capsule(PyObject *obj, LLC &llc) {
 }
 
 /**
- * Parse a scipy.LowLevelCallable into 2 void pointers.
+ * Parse a `scipy.LowLevelCallable`_ into 2 void pointers.
  *
- * A scipy.LowLevelCallable is a sub class of a 3 tuple
- * Tuple[PyCapsule, Union, Union]
+ * A `scipy.LowLevelCallable`_ is a sub class of a 3 tuple
+ * tuple[PyCapsule, Union, Union]
  * The actual callback is held in slot 0.
  * This PyCapsule also holds the userdata as its context.
  *
@@ -261,7 +261,7 @@ static bool set_options(NlpBundle &bundle, PyObject *dict) {
       return false;
     }
     if (!bundle.set_option(c_key, value.value())) {
-      PyErr_Format(PyExc_ValueError, "Failed to set the IPOpt option '%s'",
+      PyErr_Format(PyExc_ValueError, "Failed to set the Ipopt option '%s'",
                    c_key);
       return false;
     }
@@ -331,50 +331,121 @@ constexpr char arg_x_scaling[] = "x_scaling";
 constexpr char arg_g_scaling[] = "g_scaling";
 
 static char IPYOPT_PROBLEM_DOC[] = R"mdoc(
-    IPOpt problem type in python
+Ipopt problem type in python
 
-    Problem(n: int, x_l: numpy.ndarray[numpy.float64], x_u: numpy.ndarray[numpy.float64], m: int, g_l: numpy.ndarray[numpy.float64], g_u: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: Tuple[Sequence[float], Sequence[float]], sparsity_indices_h: Tuple[Sequence[float], Sequence[float]], eval_f: Callable, eval_grad_f: Callable, eval_g: Callable, eval_jac_g: Callable, eval_h: Optional[Callable] = None, intermediate_callback: Optional[Callable] = None, obj_scaling: float = 1., x_scaling: Optional[numpy.ndarray[numpy.float64]] = None, g_scaling: Optional[numpy.ndarray[numpy.float64]] = None, ipopt_options: Optional[Dict[str, Union[int, float, str]]] = None) -> Problem
+Problem(n: int, x_l: numpy.ndarray[numpy.float64], x_u: numpy.ndarray[numpy.float64], m: int, g_l: numpy.ndarray[numpy.float64], g_u: numpy.ndarray[numpy.float64], sparsity_indices_jac_g: tuple[Sequence[float], Sequence[float]], sparsity_indices_h: tuple[Sequence[float], Sequence[float]], eval_f: Union[Callable[[numpy.ndarray], float], PyCapsule, scipy.LowLevelCallable], eval_grad_f: Union[Callable[[numpy.ndarray, numpy.ndarray], Any], PyCapsule, scipy.LowLevelCallable], eval_g: Union[Callable[[numpy.ndarray, numpy.ndarray], Any], PyCapsule, scipy.LowLevelCallable], eval_jac_g: Union[Callable[[numpy.ndarray, numpy.ndarray], Any], PyCapsule, scipy.LowLevelCallable], eval_h: Optional[Union[Callable[[numpy.ndarray, numpy.ndarray, float, numpy.ndarray], Any], PyCapsule, scipy.LowLevelCallable]] = None, intermediate_callback: Optional[Union[Callable[[int, int, float, float, float, float, float, float, float, float, int], Any], PyCapsule, scipy.LowLevelCallable]] = None, obj_scaling: float = 1., x_scaling: Optional[numpy.ndarray[numpy.float64]] = None, g_scaling: Optional[numpy.ndarray[numpy.float64]] = None, ipopt_options: Optional[dict[str, Union[int, float, str]]] = None) -> Problem
 
-    n  -- Number of variables (dimension of x)
-    x_l -- Lower bound of x as bounded constraints
-    x_u -- Upper bound of x as bounded constraints
-        both xL, xU should be one 1-dim arrays with length n
+Args:
+    n: Number of variables (dimension of ``x``)
+    x_l: Lower bound of ``x`` as bounded constraints
+    x_u: Upper bound of ``x`` as bounded constraints
+        both ``x_l``, ``x_u`` should be one 1-dim arrays with length ``n``
 
-    m  -- Number of constraints
-    g_l -- Lower bound of constraints
-    g_u -- Upper bound of constraints
-        both gL, gU should be one dimension arrays with length m
-    sparsity_indices_jac_g -- Positions of non-zero entries of jac_g in the form of a tuple of two sequences of the same length (first list are column indices, second column are row indices)
-    sparsity_indices_h -- Positions of non-zero entries of hess
-    eval_f -- Callback function to calculate objective value.
-        Signature: `eval_f(x: numpy.ndarray) -> float`,
-    eval_grad_f -- calculates gradient for objective function.
-        Signature: `eval_grad_f(x: numpy.ndarray, out: numpy.ndarray) -> Any`. 
-        The array `out` must be a 1-dim array matching the length of `x`, i.e. `n`.
+    m: Number of constraints
+    g_l: Lower bound of constraints
+    g_u: Upper bound of constraints
+        both ``g_l``, ``g_u`` should be one dimension arrays with length ``m``
+    sparsity_indices_jac_g: Positions of non-zero entries of ``jac_g`` in the form of a tuple of two sequences of the same length (first list are column indices, second column are row indices)
+    sparsity_indices_h: Positions of non-zero entries of ``hess``
+    eval_f: Callback function to calculate objective value.
+        Signature: ``eval_f(x: numpy.ndarray) -> float``. Also accepts a `PyCapsule`_ / `scipy.LowLevelCallable`_ object. In this case, the C function has signature::
+            
+            bool f(int n, double* x, double *obj_value, void *user_data)
+
+    eval_grad_f: calculates gradient for objective function.
+        Signature: ``eval_grad_f(x: numpy.ndarray, out: numpy.ndarray) -> Any``.
+        The array ``out`` must be a 1-dim array matching the length of ``x``, i.e. ``n``.
         A possible return value will be ignored.
-    eval_g -- calculates the constraint values and return an array
-        Signature: `eval_g(x: numpy.ndarray, out: numpy.ndarray) -> Any`.
-        The array `out` must be a 1-dim array of length `m`.
+        Also accepts a `PyCapsule`_ / `scipy.LowLevelCallable`_ object. In this case, the C function has signature::
+
+            bool grad_f(int n, double* x, double *out, void *user_data)
+
+    eval_g: calculates the constraint values and return an array
+        The constraints are defined by ::
+
+            g_l <= g(x) <= g_u
+
+        Signature: ``eval_g(x: numpy.ndarray, out: numpy.ndarray) -> Any``.
+        The array ``out`` must be a 1-dim array of length ``m``.
         A possible return value will be ignored.
-    eval_jac_g -- calculates the Jacobi matrix.
-        Signature: `eval_jac_g(x: numpy.ndarray, out: numpy.ndarray) -> Any`. The array `out` must be a 1-dim array whose entries are the entries of the Jacobi matrix jac_g listed in `sparsity_indices_jac_g` (order matters).
+        Also accepts a `PyCapsule`_ / `scipy.LowLevelCallable`_ object. In this case, the C function has signature::
+
+            bool g(int n, double* x, int m, double *out, void *user_data)
+
+    eval_jac_g: calculates the Jacobi matrix.
+        Signature: ``eval_jac_g(x: numpy.ndarray, out: numpy.ndarray) -> Any``. The array ``out`` must be a 1-dim array whose entries are the entries of the Jacobi matrix `jac_g` listed in ``sparsity_indices_jac_g`` (order matters).
         A possible return value will be ignored.
-    eval_h -- calculates the hessian matrix (optional).
-        Signature: `eval_h(x: numpy.ndarray, lagrange: numpy.ndarray, obj_factor: numpy.ndarray, out: numpy.ndarray) -> Any`.
-        The array `out` must be a 1-dim array and contain the entries of
-        `obj_factor * Hess(f) + lagrange[i] * Hess(g[i])` (sum over `i`),
-        listed in `sparsity_indices_hess` for given `obj_factor: float`
-        and `lagrange: numpy.ndarray` of shape (m,).
+        Also accepts a `PyCapsule`_ / `scipy.LowLevelCallable`_ object. In this case, the C function has signature::
+
+            bool jac_g(int n,
+                       double* x,
+                       int m,
+                       int nele_jac,
+                       double *out,
+                       void *user_data)
+
+    eval_h: calculates the Hessian of the Lagrangian ``L`` (optional).
+        Signature::
+
+            eval_h(x: numpy.ndarray, lagrange: numpy.ndarray,
+                   obj_factor: float, out: numpy.ndarray) -> Any
+
+        The array ``out`` must be a 1-dim array and contain the entries of the Hessian of the Lagrangian L::
+
+            L = obj_factor * f + lagrange[i] * g[i] (sum over `i`),
+
+        listed in ``sparsity_indices_hess`` for given ``obj_factor: float``
+        and ``lagrange: numpy.ndarray`` of shape ``(m,)``.
         A possible return value will be ignored.
-        If omitted, the parameter sparsity_indices_hess will be ignored and Ipopt will use approximated hessian
+        If omitted, the parameter ``sparsity_indices_hess`` will be ignored and Ipopt will use approximated hessian
         which will make the convergence slower.
-    intermediate_callback --  Intermediate Callback method for the user.
-        This method is called once per iteration (during the convergence check), and can be used to obtain information about the optimization status while Ipopt solves the problem, and also to request a premature termination (see the IpOpt docs for more details).
-        Signature: `intermediate_callback(mode: int, iter: int, obj_value: float, inf_pr: float, inf_du: float, mu: float, d_norm: float, regularization_size: float, alpha_du: float, alpha_pr: float) -> Any`.
-    obj_scaling -- A scaling factor for the objective value (see `set_problem_scaling`).
-    x_scaling   -- Either None (no scaling) or a numpy.ndarray of length n, scaling the x variables (see `set_problem_scaling`).
-    g_scaling   -- Either None (no scaling) or a numpy.ndarray of length m, scaling the g variables (see `set_problem_scaling`).
-    ipopt_options -- A dict of key value pairs, to be passed to IPOpt (see ipopt --print-options or the IPOpt manual)"
+        Also accepts a `PyCapsule`_ / `scipy.LowLevelCallable`_ object. In this case, the C function has signature::
+
+            bool h(int n,
+                   double* x,
+                   double obj_value,
+                   int m,
+                   double *lagrange,
+                   int nele_hess,
+                   double *out,
+                   void *user_data)
+
+    intermediate_callback: Intermediate Callback method for the user.
+        This method is called once per iteration (during the convergence check), and can be used to obtain information about the optimization status while Ipopt solves the problem, and also to request a premature termination (see the Ipopt docs for more details).
+        Signature::
+
+            intermediate_callback(
+              mode: int, iter: int, obj_value: float,
+              inf_pr: float, inf_du: float, mu: float,
+              d_norm: float, regularization_size: float,
+              alpha_du: float, alpha_pr: float,
+              ls_trials: int
+            ) -> Any
+
+        Also accepts a `PyCapsule`_ / `scipy.LowLevelCallable`_ object. In this case, the C function has signature::
+
+            bool intermediate_callback(int algorithm_mode,
+                                       int iter,
+                                       double obj_value,
+                                       double inf_pr,
+                                       double inf_du,
+                                       double mu,
+                                       double d_norm,
+                                       double regularization_size,
+                                       double alpha_du,
+                                       double alpha_pr,
+                                       int ls_trails,
+                                       const void *ip_data,
+                                       void *ip_cq,
+                                       void *userdata)
+
+    obj_scaling: A scaling factor for the objective value (see ``set_problem_scaling``).
+    x_scaling: Either ``None`` (no scaling) or a ``numpy.ndarray`` of length ``n``, scaling the ``x`` variables (see :func:`set_problem_scaling`).
+    g_scaling: Either ``None`` (no scaling) or a ``numpy.ndarray`` of length ``m``, scaling the ``g`` variables (see :func:`set_problem_scaling`).
+    ipopt_options: A dict of key value pairs, to be passed to Ipopt (use :func:`get_ipopt_options` to get a list of all options available)"
+
+.. _`PyCapsule`: https://docs.python.org/3/c-api/capsule.html
+.. _`scipy.LowLevelCallable`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.LowLevelCallable.html?highlight=lowlevelcallable#scipy.LowLevelCallable
 )mdoc";
 static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
                                       PyObject *keywords) {
@@ -501,12 +572,12 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
 }
 
 static char IPYOPT_SOLVE_DOC[] = R"mdoc(
-solve(x: numpy.ndarray[numpy.float64], *, mult_g: Optional[numpy.ndarray[numpy.float64]] = None, mult_x_L: Optional[numpy.ndarray[numpy.float64]] = None, mult_x_U: Optional[numpy.ndarray[numpy.float64]] = None) -> Tuple[numpy.ndarray[numpy.float64], float, int]
+solve(x: numpy.ndarray[numpy.float64], mult_g: Optional[numpy.ndarray[numpy.float64]] = None, mult_x_L: Optional[numpy.ndarray[numpy.float64]] = None, mult_x_U: Optional[numpy.ndarray[numpy.float64]] = None) -> tuple[numpy.ndarray[numpy.float64], float, int]
 
 Call Ipopt to solve problem created before and return
-a tuple containing the final solution x, the value of the final objective function
-and the return status code of ipopt.
-mult_g, mult_x_L, mult_x_U are optional keyword only arguments
+a tuple containing the final solution ``x``, the value of the final objective function
+and the return status code of Ipopt.
+``mult_g``, ``mult_x_L``, ``mult_x_U`` are optional keyword only arguments
 allowing previous values of bound multipliers to be passed in warm
 start applications.
 If passed, these variables are modified.
@@ -542,12 +613,11 @@ static PyObject *py_solve(PyObject *self, PyObject *args, PyObject *keywords) {
 }
 
 static char IPYOPT_SET_OPTION_DOC[] = R"mdoc(
-set(**kwargs)
+set(**kwargs) -> None
 
-Set one or more Ipopt options. The python type of the value objects have to match
-the corresponding types (i.e. str, float or int) of the IPOpt options.
-Refer to the Ipopt document for more information about Ipopt options, or use
-ipopt --print-options
+Set one or more Ipopt options. The Python type of the value objects have to match
+the corresponding types (i.e. ``str``, ``float`` or ``int``) of the Ipopt options.
+Refer to the Ipopt document for more information about Ipopt options, or use :func:`get_ipopt_options`
 to see a list of available options.
 )mdoc";
 static PyObject *py_set(PyObject *self, PyObject *args, PyObject *keywords) {
@@ -559,12 +629,14 @@ static PyObject *py_set(PyObject *self, PyObject *args, PyObject *keywords) {
 }
 
 static char IPYOPT_SET_PROBLEM_SCALING_DOC[] = R"mdoc(
-set_problem_scaling(obj_scaling: float, x_scaling: Optional[numpy.ndarray] = None, g_scaling: Optional[numpy.ndarray] = None)
+set_problem_scaling(obj_scaling: float, x_scaling: Optional[numpy.ndarray] = None, g_scaling: Optional[numpy.ndarray] = None) -> None
 
 Set scaling parameters for the NLP.
-Attention: Only takes effect if `nlp_scaling_method="user-scaling"` is set via `Problem.set` or `ipopt_options`!
-If x_scaling or g_scaling is not specified or explicitly are None, then no scaling for x resp. g is done.
-This corresponds to the TNLP::get_scaling_parameters method.
+Attention: Only takes effect if ``nlp_scaling_method="user-scaling"`` is set via :func:`set` or the ``ipopt_options`` argument!
+If ``x_scaling`` or ``g_scaling`` is not specified or explicitly are ``None``, then no scaling for ``x`` resp. ``g`` is done.
+This corresponds to the `TNLP::get_scaling_parameters`_ method.
+
+.. _`TNLP::get_scaling_parameters`: https://coin-or.github.io/Ipopt/classIpopt_1_1TNLP.html#a3e840dddefbe48a048d213bd02b39854
 )mdoc";
 
 static PyObject *py_set_problem_scaling(PyObject *self, PyObject *args,
@@ -613,15 +685,19 @@ static PyObject *py_ipopt_type(IpoptOption::Type t) {
 }
 
 static char GET_IPOPT_OPTIONS_DOC[] = R"mdoc(
-get_ipopt_options() -> list[str, dict]
+get_ipopt_options() -> list[dict[str, Any]]
 
-Get a list of all IPOpt options.
-The items of the returned list are dicts, containing the fields:
-  "name": str
-  "type": Union[Type[int], Type[float], Type[str], None]
-  "description_short": str
-  "description_long": str
-  "category": str
+Get a list of all Ipopt options.
+The items of the returned list are dicts, containing the fields::
+
+    {
+      "name": str,
+      "type": Union[Type[int], Type[float], Type[str], None],
+      "description_short": str,
+      "description_long": str,
+      "category": str
+    }
+
 )mdoc";
 
 static PyObject *py_get_ipopt_options(PyObject *, PyObject *) {
@@ -661,7 +737,7 @@ PyObject *py_get_stats(PyObject *self, void *) {
 static struct PyModuleDef moduledef = {
     .m_base = PyModuleDef_HEAD_INIT,
     .m_name = "ipyopt",
-    .m_doc = "A hook between Ipopt and Python",
+    .m_doc = "Python interface to Ipopt",
     .m_size = -1,
     .m_methods = (PyMethodDef[]){{"get_ipopt_options", py_get_ipopt_options,
                                   METH_NOARGS, GET_IPOPT_OPTIONS_DOC},
@@ -710,9 +786,11 @@ PyTypeObject IPyOptProblemType = {
     .tp_iternext = 0,
     .tp_methods = problem_methods,
     .tp_members = 0,
-    .tp_getset = (PyGetSetDef[]){{"stats", py_get_stats, nullptr,
-                                  "Stats about an optimization run", nullptr},
-                                 {nullptr, nullptr, nullptr, nullptr, nullptr}},
+    .tp_getset =
+        (PyGetSetDef[]){{"stats", py_get_stats, nullptr,
+                         "dict[str, int]: Stats about an optimization run",
+                         nullptr},
+                        {nullptr, nullptr, nullptr, nullptr, nullptr}},
     .tp_base = 0,
     .tp_dict = 0,
     .tp_descr_get = 0,

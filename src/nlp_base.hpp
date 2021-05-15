@@ -60,7 +60,7 @@ public:
 };
 
 /**
- * @brief IPOpt NLP templated interface, exposing generic callables.
+ * @brief Ipopt NLP templated interface, exposing generic callables.
  */
 template <class F, class GradF, class G, class JacG, class H,
           class IntermediateCb>

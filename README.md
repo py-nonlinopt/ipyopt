@@ -1,14 +1,40 @@
+[![pipeline status](https://gitlab.com/g-braeunlich/ipyopt/badges/master/pipeline.svg)](https://gitlab.com/g-braeunlich/ipyopt/-/commits/master)
+[![documentation status](https://readthedocs.org/projects/ipyopt/badge/)](https://ipyopt.readthedocs.io/)
+[![python version](https://img.shields.io/pypi/pyversions/ipyopt.svg?logo=python&logoColor=white)](https://pypi.org/project/ipyopt)
+[![latest version](https://img.shields.io/pypi/v/ipyopt.svg)](https://pypi.org/project/ipyopt)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![DOI](https://zenodo.org/badge/143015117.svg)](https://zenodo.org/badge/latestdoi/143015117)
 
-# IPyOpt
+# ipyopt
 
-`IPyOpt` is a Python 🐍 C++ extension that allows you to use
+`ipyopt` is a Python 🐍 C++ extension that allows you to use
 [Ipopt](http://www.coin-or.org/Ipopt/) in Python.
+
+Ipopt solves general nonlinear programming problems of the form
+
+```
+min f(x)
+```
+
+under the constraints
+
+```
+g_l <= g(x) <= g_u,
+x_l <= x <= x_u,
+```
+
+where `x` is `n` dimensional and `g(x)` is `m` dimensional.
+
+## Goal
+
+Provide as much performance as possible. This is also reflected in the
+fact that the shipped `scipy.optimize.minimize` `ipopt` method
+deviates in some concerns from the usual methods in scipy.
+If you are interested in a more `scipy` like interface, have a look at [cyipopt](https://github.com/mechmotum/cyipopt).
 
 ## Installation
 
-*Note* the pypi repo currently only provides 🐧 linux wheels.
+*Note* the pypi repository currently only provides 🐧 linux wheels.
 
 ```bash
 pip install [--user] ipyopt
@@ -37,7 +63,7 @@ how this can be done.
 
 ## Usage
 
-You can use `IPyOpt` like this:
+You can use `ipyopt` like this:
 
 ```python
 import ipyopt
@@ -51,17 +77,17 @@ For an example, see [examples/hs071.py](examples/hs071.py).
 For maximal performance, there is also support for [PyCapsules](https://docs.python.org/3/c-api/capsule.html) /
 [scipy.LowLevelCallable](https://docs.scipy.org/doc/scipy/reference/generated/scipy.LowLevelCallable.html). By
 using this approach, there will be no C++ <-> Python interactions
-during IPopt optimization. Here is an example
+during Ipopt optimization. Here is an example
 [test/c_capsules/](test/c_capsules) (C code) and
 [test/test_ipyopt.py](test/test_ipyopt.py) (Python code using the
 PyCapsules provided by the C code).
 
-`IPyOpt` as a module comes with docstring. You can poke around 
+`ipyopt` as a module comes with docstring. You can poke around 
 it by using Python's `help()` command.
 
 ## Build
 
-`IPyOpt` depends on the following packages:
+`ipyopt` depends on the following packages:
 
 1. A compiler and a linker, e.g. gcc, ld
 2. [Ipopt](https://github.com/coin-or/Ipopt)
@@ -72,7 +98,7 @@ it by using Python's `help()` command.
 To build from source, first, get the latest source code using:
 
 ```sh
-git clone https://gitlab.com/g-braeunlich/IPyOpt.git
+git clone https://gitlab.com/g-braeunlich/ipyopt.git
 ```
 
 Check whether a file `ipopt.pc` was distributed with your Ipopt installation.
@@ -129,16 +155,16 @@ python hs071.py
 ```
 	
 The file [examples/hs071.py](examples/hs071.py) contains a toy
-optimization problem. If everything is OK, `IPyOpt` will invoke
+optimization problem. If everything is OK, `ipyopt` will invoke
 `Ipopt` to solve it for you. This python file is self-documented and
 can be used as a template for writing your own optimization problems.
 
 **Hessian Estimation**: since Hessian estimation is usually tedious,
-Ipopt can solve problems without Hessian estimation. `IPyOpt` also
+Ipopt can solve problems without Hessian estimation. `ipyopt` also
 supports this feature. The file [examples/hs071.py](examples/hs071.py)
 demonstrates the idea. If you provide the `ipyopt.Problem` constructor
-with an `eval_h` callback function, `IPOpt` will delegate the Hessian matrix calculation to your
-function (otherwise `IPOpt` will approximate Hessian for you).
+with an `eval_h` callback function, `Ipopt` will delegate the Hessian matrix calculation to your
+function (otherwise `Ipopt` will approximate Hessian for you).
 
 ## Contributing
 

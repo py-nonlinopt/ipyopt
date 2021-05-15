@@ -1,4 +1,6 @@
-"""ipyopt.optimize: scipy method for scipy.optimize.minimize
+"""ipyopt.optimize: ipopt method for `scipy.optimize.minimize`_
+
+.. _`scipy.optimize.minimize`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize
 """
 
 from typing import (
@@ -20,33 +22,33 @@ from .ipyopt import Problem, get_ipopt_options
 
 
 class Constraint(NamedTuple):
-    """Constraints definition to be passed to scipy.optimize.minimize as its `constraints` argument when using the ipopt method.
-    The constraints are defined by
-    lb <= fun(x) <= ub
+    """Constraints definition to be passed to `scipy.optimize.minimize`_ as its ``constraints`` argument when using the ipopt method.
+    The constraints are defined by::
 
-    :param fun: The constraint function. Signature: fun(x: numpy.ndarray, out: numpy.ndarray) -> Any
-    :param jac: Jacobian of fun. Signature: jac(x: numpy.ndarray, out: numpy.ndarray) -> Any
-    :param lb: Lower bounds
-    :param ub: Upper bounds
-    :param jac_sparsity_indices: Sparsity structure of jac. Must be given in the form ((i[0], ..., i[m-1]), (j[0], ..., j[m-1])), where (i[k], j[k]) k=0,...,m-1 are the non zero entries of jac
+        lb <= fun(x) <= ub
     """
 
     fun: Callable[[numpy.ndarray, numpy.ndarray], Any]
+    """Constraint function. Signature is ``fun(x: numpy.ndarray, out: numpy.ndarray) -> Any``"""
     jac: Callable[[numpy.ndarray, numpy.ndarray], Any]
+    """Jacobian of ``fun``. Signature is ``jac(x: numpy.ndarray, out: numpy.ndarray) -> Any``"""
     lb: numpy.ndarray
+    """Lower bounds"""
     ub: numpy.ndarray
+    """Upper bounds"""
     jac_sparsity_indices: Optional[
         Tuple[Union[Sequence[int], numpy.ndarray], Union[Sequence[int], numpy.ndarray]]
     ] = None
+    """Sparsity structure of ``jac``. Must be given in the form ``((i[0], ..., i[m-1]), (j[0], ..., j[m-1]))``, where ``(i[k], j[k]), k=0,...,m-1`` are the non zero entries of ``jac``"""
 
 
 T = TypeVar("T")
 
 
 class JacEnvelope(Generic[T]):
-    """A wrapper for PyCapsules / scipy.LowLevelCallable, so they can be passed as the jac argument to scipy.optimize.minimize.
+    """A wrapper for `PyCapsule`_ / `scipy.LowLevelCallable`_ objects, so they can be passed as the ``jac`` argument to `scipy.optimize.minimize`_.
 
-    If the jac argument is not a Callable, then scipy will assume that it is a bool. It will be evaluated as bool and None will be passed to the method. To circumwent this, you will have to wrap your PyCapsules / scipy.LowLevelCallable s with this wrapper and pass it to scipy.optimize.minimize as the jac argument."""
+    If the ``jac`` argument is not callable, then `scipy.optimize.minimize`_ will assume that it is a ``bool``. It will be evaluated to a ``bool`` and ``None`` will be passed to the method. To circumwent this, wrap your `PyCapsule`_ / `scipy.LowLevelCallable`_ objects with this wrapper and pass it to `scipy.optimize.minimize`_ as the ``jac`` argument."""
 
     def __init__(self, inner: T):
         self.inner = inner
@@ -108,23 +110,33 @@ def ipopt(
     ] = None,
     **kwargs,
 ) -> OptimizeResult:
-    """IPOpt Method for scipy.optimize.minimize (to be used as 'method' argument)
+    """Ipopt Method for `scipy.optimize.minimize`_ (to be used as ``method`` argument)
 
-    Standard arguments:
-    :param fun:, :param x0: same as in scipy.optimize.minimize
-    :param args: must be ()
-    :param jac: Gradient of fun. If you want to pass a scipy.LowLevelCallable or a PyCapsule, you have to wrap it with :JacEnvelope: (see its documentation). In contrast to standard scipy.optimize.minimize this argument is mandatory. Use scipy.optimize.approx_fprime to numerically aproximate the derivative for pure python callables. This wont work for scipy.LowLevelCallable / PyCapsule.
-    :param hess: Hessian of the Lagrangian L. hess(x, lag, obj_fac, out) should write into out the value of the Hessian of L = obj_fac*fun + <lag, constraint.fun>, where <.,.> denotes the euclidean inner product.
-    :param bounds: Bounds for the x variable space
-    :param constraints: See doc of :Constraint:
-    :param tol: According to scipy.optimize.minimize
-    :param callback: Will be called after each iteration. Must have the same signature as the intermediate_callback argument for :ipyopt.Problem:. See the IPOpt documentation for the meaning of the arguments.
-    :param maxiter: According to scipy.optimize.minimize.
-    :param disp: According to scipy.optimize.minimize.
-    :param obj_scaling: Scaling factor for the objective value.
-    :param x_scaling: Scaling factors for the x space.
-    :param constraint_scaling: Scaling factors for the constraint space.
-    :param hess_sparsity_indices: Sparsity indices for hess. Must be given in the form ((i[0], ..., i[n-1]), (j[0], ..., j[n-1])), where (i[k], j[k]) k=0,...,n-1 are the non zero entries of hess
+    Args:
+        fun:
+        x0: same as in `scipy.optimize.minimize`_
+        args: must be ``()``
+        jac: Gradient of ``fun``. If you want to pass a `scipy.LowLevelCallable`_ or a `PyCapsule`_, you have to wrap it with :class:`JacEnvelope` (see its documentation). In contrast to standard `scipy.optimize.minimize`_ this argument is mandatory. Use `scipy.optimize.approx_fprime`_ to numerically approximate the derivative for pure python callables. This wont work for `scipy.LowLevelCallable`_ / `PyCapsule`_.
+        hess: Hessian of the Lagrangian L. ``hess(x, lag, obj_fac, out)`` should write into ``out`` the value of the Hessian of::
+
+                L = obj_fac*fun + <lag, constraint.fun>,
+
+            where ``<.,.>`` denotes the euclidean inner product.
+        bounds: Bounds for the x variable space
+        constraints: See doc of :class:`Constraint`
+        tol: According to `scipy.optimize.minimize`_
+        callback: Will be called after each iteration. Must have the same signature as the ``intermediate_callback`` argument for ``ipyopt.Problem``. See the Ipopt documentation for the meaning of the arguments.
+        maxiter: According to `scipy.optimize.minimize`_.
+        disp: According to `scipy.optimize.minimize`_.
+        obj_scaling: Scaling factor for the objective value.
+        x_scaling: Scaling factors for the x space.
+        constraint_scaling: Scaling factors for the constraint space.
+        hess_sparsity_indices: Sparsity indices for ``hess``. Must be given in the form ``((i[0], ..., i[n-1]), (j[0], ..., j[n-1]))``, where ``(i[k], j[k]), k=0,...,n-1`` are the non zero entries of ``hess``
+    Returns:
+        An `scipy.optimize.OptimizeResult`_ instance
+
+    .. _`scipy.optimize.approx_fprime`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.approx_fprime.html?highlight=approx_fprime#scipy.optimize.approx_fprime
+    .. _`scipy.optimize.OptimizeResult`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.OptimizeResult.html?highlight=optimizeresult#scipy.optimize.OptimizeResult
     """
     if args:
         raise ValueError(

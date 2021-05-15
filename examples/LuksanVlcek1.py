@@ -1,15 +1,15 @@
 #!/usr/bin/python
 
-"""
-The same model as Ipopt/examples/ScalableProblems/LuksanVlcek1.cpp
+"""The same model as Ipopt/examples/ScalableProblems/LuksanVlcek1.cpp
 
-You can set Ipopt options by calling nlp.set.
-For instance, to set the tolarance by calling
+You can set Ipopt options by calling ipyopt.Problem.set().
+For instance, to set the tolarance, use
 
+    nlp = ipyopt.Problem(...)
     nlp.set(tol=1e-8)
 
-For a complete list of Ipopt options, refer to
-    http://www.coin-or.org/Ipopt/documentation/node59.html
+For a complete list of Ipopt options, use
+    print(ipyopt.get_ipopt_options())
 """
 
 import numpy
@@ -31,6 +31,7 @@ x0[1::2] = 1.0
 
 
 def eval_f(x):
+    """Return the objective value"""
     assert len(x) == nvar
     return 100.0 * numpy.sum((x[:-1] ** 2 - x[1:]) ** 2) + numpy.sum(
         (x[:-1] - 1.0) ** 2
@@ -38,6 +39,7 @@ def eval_f(x):
 
 
 def eval_grad_f(x, out):
+    """Return the gradient of the objective"""
     assert len(x) == nvar
     out[0] = 0.0
     h = x[:-1] ** 2 - x[1:]
@@ -47,6 +49,10 @@ def eval_grad_f(x, out):
 
 
 def eval_g(x, out):
+    """Return the constraint residuals
+    Constraints are defined by:
+    g_L <= g(x) <= g_U
+    """
     assert len(x) == nvar
     out[()] = (
         3.0 * x[1:-1] ** 3
@@ -61,6 +67,7 @@ def eval_g(x, out):
 
 
 def eval_jac_g(x, out):
+    """Values of the jacobian of g"""
     assert len(x) == nvar
     out[::3] = -(1.0 + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
     out[1::3] = (
@@ -78,6 +85,11 @@ def eval_jac_g(x, out):
     return out
 
 
+# / * * * 0   ...       0 \
+# | 0 * * * 0 ...       0 |
+# | 0 0 * * * 0 ...     0 |
+# |           ...         |
+# \ 0 ...           * * * /
 eval_jac_g.sparsity_indices = (
     numpy.repeat(numpy.arange(nvar - 2), 3),
     numpy.array(
@@ -89,6 +101,10 @@ eval_jac_g.sparsity_indices = (
 
 
 def eval_h(x, lagrange, obj_factor, out):
+    """Hessian of the Lagrangian
+    L = obj_factor * f + <lagrange, g>,
+    where <.,.> denotes the inner product.
+    """
     out[-1] = 0.0
     out[:-2:2] = obj_factor * (2.0 + 400.0 * (3.0 * x[:-1] * x[:-1] - x[1:]))
     out[:-4:2] -= lagrange * (2.0 + x[:-2]) * numpy.exp(x[:-2] - x[1:-1])
@@ -108,6 +124,11 @@ def eval_h(x, lagrange, obj_factor, out):
     return out
 
 
+# / * * 0 ...   0 \
+# | 0 * * 0 ... 0 |
+# |      ...      |
+# | 0 ...   0 * * |
+# \ 0 ...     0 * /
 eval_h.sparsity_indices = (
     numpy.repeat(numpy.arange(nvar), 2)[: 2 * nvar - 1],
     numpy.array([numpy.arange(nvar), numpy.arange(1, nvar + 1)]).T.flatten()[
@@ -132,28 +153,22 @@ nlp = ipyopt.Problem(
     eval_h,
 )
 
-print("Going to call solve")
-print("x0 = {}".format(x0))
+print("Going to call solve with x0 = {}".format(x0))
 zl = numpy.zeros(nvar)
 zu = numpy.zeros(nvar)
 constraint_multipliers = numpy.zeros(ncon)
 _x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
 
 
-def print_variable(variable_name, value):
-    for i, val in enumerate(value):
-        print("{}[{}] = {}".format(variable_name, i, val))
-
-
 print("Solution of the primal variables, x")
-print_variable("x", _x)
+print("x =", _x)
 
 print("Solution of the bound multipliers, z_L and z_U")
-print_variable("z_L", zl)
-print_variable("z_U", zu)
+print("z_L =", zl)
+print("z_U =", zu)
 
 print("Solution of the constraint multipliers, lambda")
-print_variable("lambda", constraint_multipliers)
+print("lambda =", constraint_multipliers)
 
 print("Objective value")
 print("f(x*) = {}".format(obj))

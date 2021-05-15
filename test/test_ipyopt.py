@@ -1,3 +1,6 @@
+"""Unittests"""
+# pylint: disable=missing-function-docstring
+
 import unittest
 from unittest import mock
 from typing import Any
@@ -78,6 +81,8 @@ def PyModule(_n, wrap_eval_h=lambda f: f):
     _e_x = e_x(_n)
 
     class _PyModule:
+        """Set of pure python callbacks"""
+
         e_x = _e_x
         n = _n
 
@@ -114,6 +119,8 @@ class Base:
     """Just a wrapper "namespace" to prevent discovery / running of the base test case"""
 
     class TestSimpleProblem(unittest.TestCase):
+        """Base class for test suites for pure python callbacks, PyCapsule, scipy.LowLevelCallable"""
+
         function_set: Any = None
 
         def setUp(self):
@@ -167,6 +174,8 @@ class Base:
 
 @unittest.skipIf(c_capsules is None, "c_capsules not built")
 class TestSimpleProblem(Base.TestSimpleProblem):
+    """Test suite for PyCapsule"""
+
     function_set = c_capsules
 
     def setUp(self):
@@ -197,8 +206,12 @@ class TestSimpleProblem(Base.TestSimpleProblem):
     c_capsules is None or scipy is None, "c_capsules not built or scipy not available"
 )
 class TestSimpleProblemScipy(Base.TestSimpleProblem):
+    """Test suite for scipy.LowLevelCallable"""
+
     def setUp(self):
         class ScipyModule:
+            """Converts c_capsules into a set of scipy.LowLevelCallable"""
+
             n = c_capsules.n
             f = scipy.LowLevelCallable(c_capsules.f)
             grad_f = scipy.LowLevelCallable(c_capsules.grad_f)
@@ -219,6 +232,8 @@ class TestSimpleProblemScipy(Base.TestSimpleProblem):
 
 
 class TestSimpleProblemPy(Base.TestSimpleProblem):
+    """Test suite for pure python callbacks"""
+
     def setUp(self):
         self.function_set = PyModule(_n=4, wrap_eval_h=lambda f: mock.Mock(wraps=f))
         super().setUp()
@@ -232,6 +247,8 @@ class TestSimpleProblemPy(Base.TestSimpleProblem):
 
 
 class TestIPyOpt(unittest.TestCase):
+    """Test suite for problem scaling / intermediate_callback - pure python callbacks"""
+
     function_set = PyModule(_n=4)
 
     def test_problem_scaling(self):
@@ -296,10 +313,14 @@ class TestIPyOpt(unittest.TestCase):
 
 @unittest.skipIf(c_capsules is None, "c_capsules not built")
 class TestIPyOptC(TestIPyOpt):
+    """PyCapsule variant of TestIPyOpt"""
+
     function_set = c_capsules
 
 
 class TestGetIpoptOptions(unittest.TestCase):
+    """Tests for get_ipopt_options"""
+
     def test_get_ipopt_options(self):
         self.assertTrue(
             "print_level" in {opt["name"] for opt in ipyopt.get_ipopt_options()}
