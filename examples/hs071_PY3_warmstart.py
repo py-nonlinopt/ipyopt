@@ -2,8 +2,8 @@
 
 """Same as hs071.py, but this time with warm start"""
 
-import ipyopt
 from numpy import ones, float_, array, zeros
+import ipyopt
 
 
 nvar = 4

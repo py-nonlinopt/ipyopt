@@ -138,6 +138,7 @@ def ipopt(
     .. _`scipy.optimize.approx_fprime`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.approx_fprime.html?highlight=approx_fprime#scipy.optimize.approx_fprime
     .. _`scipy.optimize.OptimizeResult`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.OptimizeResult.html?highlight=optimizeresult#scipy.optimize.OptimizeResult
     """
+    # pylint: disable=too-many-locals
     if args:
         raise ValueError(
             "Passing arguments to function is not supported. Use closures or callable class instances to give the function access to some arguments."

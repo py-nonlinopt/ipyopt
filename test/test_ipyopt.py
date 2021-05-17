@@ -155,7 +155,7 @@ class Base:
                 method=ipyopt.optimize.ipopt,
                 jac=ipyopt.optimize.JacEnvelope(self.function_set.grad_f),
                 hess=self.function_set.h,
-                bounds=[(l, u) for l, u in zip(x_L(n), x_U(n))],
+                bounds=list(zip(x_L(n), x_U(n))),
                 constraints=ipyopt.optimize.Constraint(
                     fun=self.function_set.g,
                     jac=self.function_set.jac_g,

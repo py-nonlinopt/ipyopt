@@ -62,7 +62,7 @@ eval_h_sparsity_indices = (
 )
 
 
-def main():
+def main():  # pylint: disable=missing-function-docstring
     # define the parameters and their box constraints
     nvar = 2
     x_L = numpy.array([-3, -3], dtype=float)

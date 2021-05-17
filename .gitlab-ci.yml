@@ -22,6 +22,26 @@ build:
       - dist/ipyopt-*manylinux*.whl
       - dist/ipyopt-*.tar.gz
 
+.install-wheel:
+  before_script:
+    - mkdir /tmp/ipyopt
+    - pip install --no-index --find-links dist --target /tmp/ipyopt/ --no-deps ipyopt
+    - pip install --no-index --find-links dist --no-deps ipyopt
+    - mv /tmp/ipyopt/ipyopt.libs .
+    - mv /tmp/ipyopt/ipyopt/ipyopt*.so ipyopt/
+
+pylint:
+  stage: test
+  image: python:3
+  extends: .install-wheel
+  script:
+    - pip install numpy scipy cython
+    - python setup_test.py build_ext --inplace
+    - cythonize -3 -i examples/hs071_capsules.pyx
+    - pip install pylint
+    - pylint --rcfile=setup.cfg ipyopt/ test/
+    - pylint --rcfile=setup.cfg --disable=duplicate-code --extension-pkg-whitelist=hs071_capsules examples/
+
 black:
   stage: test
   image: python:3
