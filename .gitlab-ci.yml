@@ -35,7 +35,7 @@ pylint:
   image: python:3
   extends: .install-wheel
   script:
-    - pip install numpy scipy cython
+    - pip install numpy scipy cython sympy
     - python setup_test.py build_ext --inplace
     - cythonize -3 -i examples/hs071_capsules.pyx
     - pip install pylint
@@ -61,7 +61,7 @@ mypy:
 test-examples:
   stage: test
   before_script:
-    - /opt/python/cp38-cp38/bin/pip install scipy cython .
+    - /opt/python/cp38-cp38/bin/pip install scipy cython sympy .
   script:
     - for script in examples/*.py ; do /opt/python/cp38-cp38/bin/python "$script" || exit 1 ; done
 

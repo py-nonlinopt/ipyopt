@@ -20,7 +20,8 @@ ipyopt also comes with a ``ipopt`` method for
 
    * The argument ``jac`` is mandatory (explicitly use
      `scipy.optimize.approx_fprime`_ if you want to numerically
-     approximate it)
+     approximate it or see :doc:`sym_diff` on how to auto
+     differentiate symbolic expressions)
    * ``hess`` is not the Hessian of the objective function ``f`` but the
      Hessian of the Lagrangian ``L(x) = obj_factor * f(x) + lagrange *
      g(x)``, where ``g`` is the constraint residuals.

@@ -7,4 +7,5 @@ Welcome to ipyopt's documentation!
    getting_started.rst
    scipy.rst
    capsules.rst
+   sym_diff.rst
    reference.rst
