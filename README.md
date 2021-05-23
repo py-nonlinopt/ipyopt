@@ -1,5 +1,4 @@
 [![pipeline status](https://gitlab.com/g-braeunlich/ipyopt/badges/master/pipeline.svg)](https://gitlab.com/g-braeunlich/ipyopt/-/commits/master)
-[![documentation status](https://readthedocs.org/projects/ipyopt/badge/)](https://ipyopt.readthedocs.io/)
 [![python version](https://img.shields.io/pypi/pyversions/ipyopt.svg?logo=python&logoColor=white)](https://pypi.org/project/ipyopt)
 [![latest version](https://img.shields.io/pypi/v/ipyopt.svg)](https://pypi.org/project/ipyopt)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -82,7 +81,7 @@ during Ipopt optimization. Here is an example
 [test/test_ipyopt.py](test/test_ipyopt.py) (Python code using the
 PyCapsules provided by the C code).
 
-For more details and hints, see the [docs](https://ipyopt.readthedocs.io).
+For more details and hints, see the [docs](https://g-braeunlich.gitlab.io/ipyopt).
 
 ## Build
 

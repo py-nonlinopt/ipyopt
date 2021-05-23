@@ -86,3 +86,17 @@ pypi:
     - twine upload --repository-url $PYPI_REPOSITORY_URL dist/*
   only:
     - tags
+
+pages:
+  stage: deploy
+  image: python:3
+  extends: .install-wheel
+  script:
+    - pip install numpy scipy cython sympy sphinx sphinx_rtd_theme
+    - sphinx-build -M html docs build
+    - mv build/html public
+  artifacts:
+    paths:
+      - public
+  only:
+    - master

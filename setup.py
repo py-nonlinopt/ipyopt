@@ -49,7 +49,7 @@ def main():
             "Programming Language :: Python :: 3",
         ],
         project_urls={
-            "Documentation": "https://ipyopt.readthedocs.io",
+            "Documentation": "https://g-braeunlich.gitlab.io/ipyopt",
             "Source": "https://gitlab.com/g-braeunlich/ipyopt",
         },
     )
