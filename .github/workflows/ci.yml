@@ -103,7 +103,7 @@ jobs:
           CIBW_ARCHS_MACOS: auto64
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_SKIP: pp* cp27-win*
-          CIBW_BEFORE_BUILD: brew install swig && brew rm gcc && brew install gcc
+          CIBW_BEFORE_BUILD: brew install swig && brew rm gcc && brew install gcc && brew install ipopt
 
       - name: Upload wheels
         uses: actions/upload-artifact@v2
@@ -119,7 +119,7 @@ jobs:
         py: [ cp37, cp38, cp39 ]
     env:
       CIBW_BUILD: ${{ matrix.py }}-*
-      CIBW_BEFORE_BUILD: yum -y install swig && yum -y install gcc-gfortran
+      CIBW_BEFORE_BUILD: yum -y install swig && yum -y install gcc-gfortran && yum -y install coin-or-Ipopt
 
     steps:
       - uses: actions/checkout@v2
