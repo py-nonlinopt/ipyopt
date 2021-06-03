@@ -12,12 +12,12 @@ on:
       - "hotfix/*"
   pull_request:
 
-jobs:
-  env:
-    CIBW_TEST_EXTRAS: test
-    CIBW_TEST_COMMAND: pytest {project}/tests
-    CIBW_BUILD_VERBOSITY: 1
+env:
+  CIBW_TEST_EXTRAS: test
+  CIBW_TEST_COMMAND: pytest {project}/tests
+  CIBW_BUILD_VERBOSITY: 1
 
+jobs:
 
   tests:
     runs-on: [ubuntu-latest, macos-latest]
