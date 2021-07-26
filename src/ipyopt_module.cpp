@@ -2,6 +2,8 @@
 #define PY_ARRAY_UNIQUE_SYMBOL ipyopt_ARRAY_API
 #include "numpy/arrayobject.h"
 
+#include <optional>
+
 #include "nlp_builder.hpp"
 #include "py_helpers.hpp"
 #include "py_nlp.hpp"
