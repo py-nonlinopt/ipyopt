@@ -347,7 +347,7 @@ Args:
     g_l: Lower bound of constraints
     g_u: Upper bound of constraints
         both ``g_l``, ``g_u`` should be one dimension arrays with length ``m``
-    sparsity_indices_jac_g: Positions of non-zero entries of ``jac_g`` in the form of a tuple of two sequences of the same length (first list are column indices, second column are row indices)
+    sparsity_indices_jac_g: Positions of non-zero entries of ``jac_g`` in the form of a tuple of two sequences of the same length (first list are constraint/row indices, second column are variable/column indices)
     sparsity_indices_h: Positions of non-zero entries of ``hess``
     eval_f: Callback function to calculate objective value.
         Signature: ``eval_f(x: numpy.ndarray) -> float``. Also accepts a `PyCapsule`_ / `scipy.LowLevelCallable`_ object. In this case, the C function has signature::
