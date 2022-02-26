@@ -41,7 +41,7 @@ def main():
                 ],
                 language="c++",
                 extra_compile_args=["-std=c++17"],
-                **get_compiler_flags()
+                **get_compiler_flags(),
             )
         ],
         install_requires=["numpy"],
@@ -64,13 +64,13 @@ def get_compiler_flags():
         if "CFLAGS" not in os.environ:
             warnings.warn(
                 "pkg-config not installed or malformed pc file.\n"
-                "Message from pkg-config:\n{}\n\n"
+                f"Message from pkg-config:\n{e.args[0]}\n\n"
                 "You have to provide setup.py with the include and library "
                 "directories of Ipopt. Example:\n"
                 "CFLAGS='-I/usr/include/coin/ -l/usr/lib64 "
                 "-lipopt -lmumps_common -ldmumps -lzmumps -lsmumps "
                 "-lcmumps -llapack -lblas -lblas -lblas "
-                "-lm  -ldl' ./setup.py build".format(e.args[0])
+                "-lm  -ldl' ./setup.py build"
             )
         return compiler_flags
 
@@ -101,9 +101,7 @@ def pkg_config(*packages, **kwargs):
         kwargs["define_macros"] = [tuple(d.split()) for d in define_macros]
     undefined_flags = kwargs.pop(None, None)
     if undefined_flags:
-        warnings.warn(
-            "Ignoring flags {} from pkg-config".format(", ".join(undefined_flags))
-        )
+        warnings.warn(f"Ignoring flags {', '.join(undefined_flags)} from pkg-config")
     return kwargs
 
 

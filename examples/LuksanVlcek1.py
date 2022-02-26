@@ -153,7 +153,7 @@ nlp = ipyopt.Problem(
     eval_h,
 )
 
-print("Going to call solve with x0 = {}".format(x0))
+print(f"Going to call solve with x0 = {x0}")
 zl = numpy.zeros(nvar)
 zu = numpy.zeros(nvar)
 constraint_multipliers = numpy.zeros(ncon)
@@ -171,4 +171,4 @@ print("Solution of the constraint multipliers, lambda")
 print("lambda =", constraint_multipliers)
 
 print("Objective value")
-print("f(x*) = {}".format(obj))
+print(f"f(x*) = {obj}")

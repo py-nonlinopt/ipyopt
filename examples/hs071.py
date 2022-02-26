@@ -155,4 +155,4 @@ print("Solution of the constraint multipliers, lambda")
 print("lambda =", constraint_multipliers)
 
 print("Objective value")
-print("f(x*) = {}".format(obj))
+print(f"f(x*) = {obj}")

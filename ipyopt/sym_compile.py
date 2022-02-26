@@ -231,10 +231,10 @@ def prepare_c_src(path: str, code: str) -> None:
     :meta private:"""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             if f.read() == code:
                 return
     except FileNotFoundError:
         pass
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(code)

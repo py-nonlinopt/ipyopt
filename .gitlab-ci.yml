@@ -10,6 +10,7 @@ build:
     - /opt/python/cp38-cp38/bin/python setup.py sdist
     - >
       for py in /opt/python/cp3* ; do \
+        [ "$py" == /opt/python/cp35-cp35m ] && continue ; \
         "$py"/bin/pip wheel . -w dist ; \
       done
     - >

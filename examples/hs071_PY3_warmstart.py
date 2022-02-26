@@ -121,7 +121,7 @@ x0 = array([1.0, 5.0, 5.0, 1.0])
 pi0 = array([1.0, 1.0])
 
 print("Going to call solve for 4 iterations")
-print("x0 = {}".format(x0))
+print(f"x0 = {x0}")
 nlp.set(max_iter=4)  # limit the number of max iterations
 zl = zeros(nvar)
 zu = zeros(nvar)
@@ -171,4 +171,4 @@ print("Solution of the constraint multipliers, lambda")
 print("lambda =", constraint_multipliers)
 
 print("Objective value")
-print("f(x*) = {}".format(obj))
+print(f"f(x*) = {obj}")
