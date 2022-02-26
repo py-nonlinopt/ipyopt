@@ -40,8 +40,8 @@ pylint:
     - python setup_test.py build_ext --inplace
     - cythonize -3 -i examples/hs071_capsules.pyx
     - pip install pylint
-    - pylint --rcfile=setup.cfg ipyopt/ test/
-    - pylint --rcfile=setup.cfg --disable=duplicate-code --extension-pkg-whitelist=hs071_capsules examples/
+    - pylint --rcfile=pyproject.toml ipyopt/ test/
+    - pylint --rcfile=pyproject.toml --disable=duplicate-code --extension-pkg-whitelist=hs071_capsules examples/
 
 black:
   stage: test

@@ -1,3 +1,20 @@
 [build-system]
 requires = ["setuptools", "wheel", "numpy"]
 build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = [
+    "scipy.*",
+    "sympy.*",
+    "pyximport.*",
+    "setuptools.*",
+]
+ignore_missing_imports = true
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = "line-too-long,invalid-name,too-few-public-methods"
+extension-pkg-allow-list = "test.c_capsules,ipyopt.ipyopt"
+output-format = "text"
+reports = "no"
