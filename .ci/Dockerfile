@@ -1,41 +1,25 @@
 FROM quay.io/pypa/manylinux2014_x86_64
 
-ARG BLAS_VERSION=3.8.0
-ARG LAPACK_VERSION=3.4.2
-ARG IPOPT_VERSION=3.12.11
+ARG LAPACK_VERSION=3.10.1
+ARG IPOPT_VERSION=3.12.12
 
-# Notes:
-# blas / lapack: need to pass -fPIC to enable dynamic linking
+# Install lapack (reference), including blas:
+RUN curl https://www.netlib.org/lapack/lapack-${LAPACK_VERSION}.tgz | tar --no-same-owner -xzf - \
+  && cmake -S lapack-${LAPACK_VERSION} -B build -DCBLAS=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=/usr/local/lib \
+  && cmake --build build --target install \
+  && rm -rf build lapack-${LAPACK_VERSION}
 
-# Install blas (reference)
-RUN curl http://www.netlib.org/blas/blas-${BLAS_VERSION}.tgz | tar -xzf - \
-  && cd BLAS-${BLAS_VERSION} \
-  && sed -i -e 's|^\(OPTS *=\).*$|\1 -O3 -fPIC|' -e 's|^\(NOOPT *=\).*$|\1 -O0 -fPIC|' -e 's|^\(BLASLIB *=\).*$|\1 libblas.a|' make.inc \
-  && make \
-  && gfortran -shared -o libblas.so *.o \
-  && mv libblas.* /usr/local/lib/ \
-  && cd - && rm -rf BLAS-${BLAS_VERSION}
-# Install lapack (reference)
-RUN curl http://www.netlib.org/lapack/lapack-${LAPACK_VERSION}.tgz | tar -xzf - \
-  && cd lapack-${LAPACK_VERSION} \
-  && sed -e 's|^\(OPTS *=\).*$|\1 -O2 -fPIC|' -e 's|^\(NOOPT *=\).*$|\1 -O0 -fPIC|' -e "s|^\(BLASLIB *= \).*$|\1/usr/local/lib/libblas.a|" make.inc.example > make.inc \
-  && make lapacklib \
-  && mv liblapack.a /usr/local/lib/ \
-  && cd - && rm -rf lapack-${LAPACK_VERSION} \
-  && mkdir /tmp/lapack && cd /tmp/lapack && ar -x /usr/local/lib/liblapack.a && gfortran -shared -o /usr/local/lib/liblapack.so /tmp/lapack/*.o && cd - && rm -rf /tmp/lapack
-# Install IpOpt
-# Notes: need ADD_CFLAGS=-lrt because of https://stackoverflow.com/questions/51209116/undefined-reference-to-clock-gettime-modify-makefile
+# Install mumps:
+RUN yum install -y MUMPS MUMPS-devel
+# Install ipopt:
 RUN curl "https://www.coin-or.org/download/source/Ipopt/Ipopt-${IPOPT_VERSION}.tgz" | tar -xzf - \
   && mv "Ipopt-${IPOPT_VERSION}" ipopt \
-  && echo -e '#!/bin/bash\n\
-curl -L -O "$@"\n\
-' > /usr/bin/wget \
-  && chmod +x /usr/bin/wget \
-  && for d in ASL Metis Mumps ; do cd "ipopt/ThirdParty/${d}" && ./get.${d} && cd - || exit 1 ; done \
   && mkdir -p ipopt_build \
   && cd ipopt_build \
-  && ADD_CFLAGS=-lrt ../ipopt/configure --prefix=/usr/local \
+  && ADD_CFLAGS=-lrt ../ipopt/configure --enable-static --prefix=/usr/local --with-mumps-incdir="/usr/include/MUMPS" --with-mumps-lib="-lmumps_common -ldmumps -lzmumps -lsmumps -lcmumps" \
   && make \
   && make install \
   && cd - \
-  && rm -rf ipopt ipopt_build /usr/bin/wget
+  && rm -rf ipopt ipopt_build
+
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib"
