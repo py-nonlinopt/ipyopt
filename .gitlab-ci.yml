@@ -1,6 +1,34 @@
-image: "${CI_REGISTRY_IMAGE}/manylinux2014_x86_64-ipopt:latest"
-# Image is built by: docker build -t "${CI_REGISTRY_IMAGE}/manylinux2014_x86_64-ipopt" .ci
-# Pushed to the registry by: docker push "${CI_REGISTRY_IMAGE}/manylinux2014_x86_64-ipopt"
+image: "${CI_REGISTRY_IMAGE}/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG"
+
+stages:
+  - build-image
+  - build
+  - test
+  - deploy
+
+build-image:
+  stage: build-image
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint:
+      - ""
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - mkdir -p /kaniko/.docker
+    - >
+      printf \
+        '{"auths": {"%s": {"username": "%s", "password": "%s"}}}' \
+        "$CI_REGISTRY" \
+        "$CI_REGISTRY_USER" \
+        "$CI_REGISTRY_PASSWORD" \
+      > /kaniko/.docker/config.json
+    - >
+      /kaniko/executor \
+        --context=.ci \
+        --destination "$CI_REGISTRY_IMAGE/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG" \
+        --cache=true \
+        --cache-ttl=720h
 
 build:
   stage: build
