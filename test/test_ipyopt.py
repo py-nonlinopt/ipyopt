@@ -13,15 +13,19 @@ try:
     import scipy
     import scipy.optimize
 
-    have_scipy = True
+    HAVE_SCIPY = True
 except ImportError:
-    have_scipy = True
+    HAVE_SCIPY = False
 try:
     from . import c_capsules
 
-    have_c_capsules = True
+    # If c_capsules is not built (no .so file),
+    # then python will load the `c_capsules` folder
+    # as an empty namespace package.
+    HAVE_C_CAPSULES = hasattr(c_capsules, "n")
+
 except ImportError:
-    have_c_capsules = False
+    HAVE_C_CAPSULES = False
 
 
 def e_x(n):
@@ -176,11 +180,13 @@ class Base:
             self.assertTrue(result.nit > 0)
 
 
-@unittest.skipIf(not have_c_capsules, "c_capsules not built")
+@unittest.skipIf(not HAVE_C_CAPSULES, "c_capsules not built")
 class TestSimpleProblem(Base.TestSimpleProblem):
     """Test suite for PyCapsule"""
 
-    function_set = c_capsules
+    @classmethod
+    def setUpClass(cls):
+        cls.function_set = c_capsules
 
     def setUp(self):
         super().setUp()
@@ -207,7 +213,7 @@ class TestSimpleProblem(Base.TestSimpleProblem):
 
 
 @unittest.skipIf(
-    not have_c_capsules or not have_scipy,
+    not HAVE_C_CAPSULES or not HAVE_SCIPY,
     "c_capsules not built or scipy not available",
 )
 class TestSimpleProblemScipy(Base.TestSimpleProblem):
@@ -316,11 +322,13 @@ class TestIPyOpt(unittest.TestCase):
                 p.solve(x0)
 
 
-@unittest.skipIf(not have_c_capsules, "c_capsules not built")
+@unittest.skipIf(not HAVE_C_CAPSULES, "c_capsules not built")
 class TestIPyOptC(TestIPyOpt):
     """PyCapsule variant of TestIPyOpt"""
 
-    function_set = c_capsules
+    @classmethod
+    def setUpClass(cls):
+        cls.function_set = c_capsules
 
 
 class TestGetIpoptOptions(unittest.TestCase):

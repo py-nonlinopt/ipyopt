@@ -70,8 +70,9 @@ test:
   before_script:
     - /opt/python/cp38-cp38/bin/pip install numpy scipy
     - /opt/python/cp38-cp38/bin/python setup.py build_ext --inplace
-    - /opt/python/cp38-cp38/bin/python setup_test.py build_ext --inplace
   script:
+    - /opt/python/cp38-cp38/bin/python -m unittest
+    - /opt/python/cp38-cp38/bin/python setup_test.py build_ext --inplace
     - /opt/python/cp38-cp38/bin/python -m unittest
 
 pypi:
