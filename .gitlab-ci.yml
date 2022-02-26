@@ -33,9 +33,10 @@ build:
 
 pylint:
   stage: test
-  image: python:3
+  image: python:3.9-slim
   extends: .install-wheel
   script:
+    - apt-get update && apt-get install -y g++
     - pip install numpy scipy cython sympy
     - python setup_test.py build_ext --inplace
     - cythonize -3 -i examples/hs071_capsules.pyx
@@ -45,7 +46,7 @@ pylint:
 
 black:
   stage: test
-  image: python:3
+  image: python:3.9-slim
   before_script:
     - pip install black
   script:
@@ -53,9 +54,9 @@ black:
 
 mypy:
   stage: test
-  image: quay.io/python-devs/ci-image:latest
+  image: python:3.9-slim
   before_script:
-    - pip install numpy
+    - pip install mypy numpy
   script:
     - mypy --exclude docs/conf.py .
 
@@ -78,7 +79,7 @@ test:
 
 pypi:
   stage: deploy
-  image: python:3.8
+  image: python:3.9-slim
   variables:
     TWINE_USERNAME: $PYPI_USERNAME
     TWINE_PASSWORD: $PYPI_PASSWORD
@@ -91,7 +92,7 @@ pypi:
 
 pages:
   stage: deploy
-  image: python:3
+  image: python:3.9-slim
   extends: .install-wheel
   script:
     - pip install numpy scipy cython sympy sphinx sphinx_rtd_theme
