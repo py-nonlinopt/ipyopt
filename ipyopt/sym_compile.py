@@ -31,7 +31,7 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
         self.f = f
         self.g = g
 
-        x = sorted(f.atoms(), key=lambda s: s.name)
+        x = sorted(f.atoms(), key=lambda s: str(s.name))
         self.m = m = len(g)
         self.n = len(x)
 

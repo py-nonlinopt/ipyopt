@@ -3,7 +3,7 @@
 
 import unittest
 from unittest import mock
-from typing import Any
+from typing import Any, Tuple
 
 import numpy
 import ipyopt
@@ -28,21 +28,21 @@ except ImportError:
     HAVE_C_CAPSULES = False
 
 
-def e_x(n):
+def e_x(n: int) -> numpy.ndarray:
     """x unit vector"""
     out = numpy.zeros(n)
     out[0] = 1.0
     return out
 
 
-def sparsity_g(n: int):
+def sparsity_g(n: int) -> Tuple[numpy.ndarray, numpy.ndarray]:
     return (
         numpy.zeros(n, dtype=int),
         numpy.arange(n, dtype=int),
     )
 
 
-def sparsity_h(n: int):
+def sparsity_h(n: int) -> Tuple[numpy.ndarray, numpy.ndarray]:
     return (numpy.arange(n, dtype=int), numpy.arange(n, dtype=int))
 
 
@@ -54,7 +54,7 @@ def x_U(n: int) -> numpy.ndarray:
     return numpy.full((n,), 10.0)
 
 
-def generic_problem(module, with_hess: bool = False, **kwargs):
+def generic_problem(module, with_hess: bool = False, **kwargs: Any) -> ipyopt.Problem:
     n = module.n
     eval_jac_g_sparsity_indices = sparsity_g(n)
     eval_h_sparsity_indices = sparsity_h(n)
@@ -95,11 +95,11 @@ def PyModule(_n, wrap_eval_h=lambda f: f):
         n = _n
 
         @staticmethod
-        def f(x):
-            return numpy.sum(x ** 2)
+        def f(x: numpy.ndarray):
+            return numpy.sum(x**2)
 
         @staticmethod
-        def grad_f(x, out):
+        def grad_f(x: numpy.ndarray, out: numpy.ndarray) -> numpy.ndarray:
             out[()] = 2.0 * x
             return out
 
@@ -131,7 +131,7 @@ class Base:
 
         function_set: Any = None
 
-        def setUp(self):
+        def setUp(self) -> None:
             n = self.function_set.n
             self.x0 = numpy.full((n,), 0.1)
             self.zl = numpy.zeros(n)
@@ -139,7 +139,7 @@ class Base:
             self.constraint_multipliers = numpy.zeros(1)
             self.n = n
 
-        def _solve(self, **kwargs):
+        def _solve(self, **kwargs: Any) -> None:
             p = generic_problem(self.function_set, **kwargs)
             x, obj, status = p.solve(
                 self.x0,
@@ -151,7 +151,7 @@ class Base:
             numpy.testing.assert_array_almost_equal(obj, 0.0)
             numpy.testing.assert_array_equal(status, 0)
 
-        def test_optimize(self):
+        def test_optimize(self) -> None:
             n = self.function_set.n
             result = scipy.optimize.minimize(
                 fun=self.function_set.f,
@@ -185,7 +185,7 @@ class TestSimpleProblem(Base.TestSimpleProblem):
     """Test suite for PyCapsule"""
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.function_set = c_capsules
 
     def setUp(self):
@@ -205,7 +205,7 @@ class TestSimpleProblem(Base.TestSimpleProblem):
                 self._solve(with_hess=with_hess)
                 self.assertEqual(h_callback.called, with_hess)
 
-    def test_simple_problem_with_intermediate_callback(self):
+    def test_simple_problem_with_intermediate_callback(self) -> None:
         callback = mock.Mock()
         c_capsules.capsule_set_context(c_capsules.intermediate_callback, callback)
         self._solve(intermediate_callback=c_capsules.intermediate_callback)
@@ -236,7 +236,7 @@ class TestSimpleProblemScipy(Base.TestSimpleProblem):
         self.function_set = ScipyModule
         super().setUp()
 
-    def test_simple_problem(self):
+    def test_simple_problem(self) -> None:
         for with_hess in (True, False):
             with self.subTest(with_hess=with_hess):
                 self._solve(with_hess=with_hess)
@@ -245,11 +245,11 @@ class TestSimpleProblemScipy(Base.TestSimpleProblem):
 class TestSimpleProblemPy(Base.TestSimpleProblem):
     """Test suite for pure python callbacks"""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.function_set = PyModule(_n=4, wrap_eval_h=lambda f: mock.Mock(wraps=f))
         super().setUp()
 
-    def test_simple_problem(self):
+    def test_simple_problem(self) -> None:
         for with_hess in (True, False):
             with self.subTest(with_hess=with_hess):
                 self.function_set.h.reset_mock()
@@ -262,7 +262,7 @@ class TestIPyOpt(unittest.TestCase):
 
     function_set = PyModule(_n=4)
 
-    def test_problem_scaling(self):
+    def test_problem_scaling(self) -> None:
         p = generic_problem(self.function_set)
         x0 = numpy.full((self.function_set.n,), 0.1)
         p.set(nlp_scaling_method="user-scaling")
@@ -277,7 +277,7 @@ class TestIPyOpt(unittest.TestCase):
         numpy.testing.assert_array_almost_equal(obj, 9.0)
         numpy.testing.assert_array_equal(status, 0)
 
-    def test_problem_scaling_constructor(self):
+    def test_problem_scaling_constructor(self) -> None:
         # Same again, but set scaling during problem creation
         p = generic_problem(self.function_set, obj_scaling=-1.0)
         x0 = numpy.full((self.function_set.n,), 0.1)
@@ -304,7 +304,7 @@ class TestIPyOpt(unittest.TestCase):
     #    numpy.testing.assert_array_almost_equal(obj, 9.)
     #    numpy.testing.assert_array_equal(status, 0)
 
-    def test_intermediate_callback(self):
+    def test_intermediate_callback(self) -> None:
         x0 = numpy.full((self.function_set.n,), 0.1)
         intermediate_callback = mock.Mock(return_value=True)
         with self.subTest("Callback via constructor"):
@@ -327,14 +327,14 @@ class TestIPyOptC(TestIPyOpt):
     """PyCapsule variant of TestIPyOpt"""
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.function_set = c_capsules
 
 
 class TestGetIpoptOptions(unittest.TestCase):
     """Tests for get_ipopt_options"""
 
-    def test_get_ipopt_options(self):
+    def test_get_ipopt_options(self) -> None:
         self.assertTrue(
             "print_level" in {opt["name"] for opt in ipyopt.get_ipopt_options()}
         )

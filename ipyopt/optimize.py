@@ -18,6 +18,7 @@ import warnings
 
 import numpy
 from scipy.optimize import OptimizeResult
+
 from .ipyopt import Problem, get_ipopt_options
 
 
@@ -86,9 +87,9 @@ IPOPT_RETURN_CODES = {
 def ipopt(
     fun: Callable[[numpy.ndarray], float],
     x0: numpy.ndarray,
-    args: tuple,
+    args: Tuple[()],
     *,
-    jac: Union[Callable[[numpy.ndarray, numpy.ndarray], Any], JacEnvelope],
+    jac: Union[Callable[[numpy.ndarray, numpy.ndarray], Any], JacEnvelope[Any]],
     hess: Optional[
         Callable[[numpy.ndarray, numpy.ndarray, float, numpy.ndarray], Any]
     ] = None,
@@ -108,7 +109,7 @@ def ipopt(
     hess_sparsity_indices: Optional[
         Tuple[Union[Sequence[int], numpy.ndarray], Union[Sequence[int], numpy.ndarray]]
     ] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> OptimizeResult:
     """Ipopt Method for `scipy.optimize.minimize`_ (to be used as ``method`` argument)
 

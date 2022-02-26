@@ -2,6 +2,7 @@
 
 """Example for optimizing scipy.optimize.rosen"""
 
+from typing import Tuple
 import numpy
 import scipy.optimize
 import ipyopt
@@ -37,7 +38,10 @@ def eval_jac_g(_X, _out):
 
 # define the nonzero slots in the jacobian
 # there are no nonzeros in the constraint jacobian
-eval_jac_g_sparsity_indices = (numpy.array([]), numpy.array([]))
+eval_jac_g_sparsity_indices: Tuple[numpy.ndarray, numpy.ndarray] = (
+    numpy.array([]),
+    numpy.array([]),
+)
 
 
 def eval_h(X, _lagrange, obj_factor, out):
