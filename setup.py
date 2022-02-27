@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import os
+from pathlib import Path
 import warnings
 import subprocess
 from numpy import get_include as _numpy_get_include
@@ -16,7 +17,7 @@ def main():
         name="ipyopt",
         version=__version__,
         description="Python interface to Ipopt",
-        long_description=open("README.md").read(),
+        long_description=(Path(__file__).parent / "README.md").read_text(),
         long_description_content_type="text/markdown",
         author="Gerhard Bräunlich",
         author_email="g.braeunlich@disroot.org",
