@@ -84,14 +84,14 @@ public:
           std::vector<Ipopt::Number> &&x_l, std::vector<Ipopt::Number> &&x_u,
           std::vector<Ipopt::Number> &&g_l, std::vector<Ipopt::Number> &&g_u)
       : NlpData{(Ipopt::Index)x_l.size(), (Ipopt::Index)g_l.size()},
-        _eval_f{std::move(eval_f)}, _eval_grad_f{std::move(eval_grad_f)},
-        _eval_g{std::move(eval_g)}, _eval_jac_g{std::move(eval_jac_g)},
-        _sparsity_indices_jac_g{std::move(sparsity_indices_jac_g)},
-        _eval_h{std::move(eval_h)}, _sparsity_indices_h{std::move(
-                                        sparsity_indices_h)},
-        _intermediate_callback{std::move(intermediate_callback)},
         _x_l{std::move(x_l)}, _x_u{std::move(x_u)}, _g_l{std::move(g_l)},
-        _g_u{std::move(g_u)} {
+        _g_u{std::move(g_u)}, _sparsity_indices_jac_g{std::move(
+                                  sparsity_indices_jac_g)},
+        _sparsity_indices_h{std::move(sparsity_indices_h)}, _eval_f{std::move(
+                                                                eval_f)},
+        _eval_grad_f{std::move(eval_grad_f)}, _eval_g{std::move(eval_g)},
+        _eval_jac_g{std::move(eval_jac_g)}, _eval_h{std::move(eval_h)},
+        _intermediate_callback{std::move(intermediate_callback)} {
     _nnz_jac_g = std::get<0>(_sparsity_indices_jac_g).size();
     _nnz_h = std::get<0>(_sparsity_indices_h).size();
   }
