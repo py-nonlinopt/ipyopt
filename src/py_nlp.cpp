@@ -6,11 +6,11 @@
 #include "numpy/arrayobject.h"
 
 static PyObject *wrap_array(unsigned int n, Ipopt::Number *x) {
-  npy_intp dims[] = {n};
+  npy_intp dims[] = {static_cast<npy_intp>(n)};
   return PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char *)x);
 }
 static PyObject *wrap_const_array(unsigned int n, const Ipopt::Number *x) {
-  npy_intp dims[] = {n};
+  npy_intp dims[] = {static_cast<npy_intp>(n)};
   return PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char *)x);
 }
 
