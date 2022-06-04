@@ -13,6 +13,7 @@ from typing import (
     Generic,
     Any,
     NamedTuple,
+    TYPE_CHECKING,
 )
 import warnings
 
@@ -20,6 +21,12 @@ import numpy
 from scipy.optimize import OptimizeResult
 
 from .ipyopt import Problem, get_ipopt_options
+
+if TYPE_CHECKING:
+    # This is only processed by mypy
+    from .ipyopt import np_array
+else:
+    np_array = numpy.ndarray
 
 
 class Constraint(NamedTuple):
@@ -29,16 +36,16 @@ class Constraint(NamedTuple):
         lb <= fun(x) <= ub
     """
 
-    fun: Callable[[numpy.ndarray, numpy.ndarray], Any]
-    """Constraint function. Signature is ``fun(x: numpy.ndarray, out: numpy.ndarray) -> Any``"""
-    jac: Callable[[numpy.ndarray, numpy.ndarray], Any]
-    """Jacobian of ``fun``. Signature is ``jac(x: numpy.ndarray, out: numpy.ndarray) -> Any``"""
-    lb: numpy.ndarray
+    fun: Callable[[np_array, np_array], Any]
+    """Constraint function. Signature is ``fun(x: np_array, out: np_array) -> Any``"""
+    jac: Callable[[np_array, np_array], Any]
+    """Jacobian of ``fun``. Signature is ``jac(x: np_array, out: np_array) -> Any``"""
+    lb: np_array
     """Lower bounds"""
-    ub: numpy.ndarray
+    ub: np_array
     """Upper bounds"""
     jac_sparsity_indices: Optional[
-        Tuple[Union[Sequence[int], numpy.ndarray], Union[Sequence[int], numpy.ndarray]]
+        Tuple[Union[Sequence[int], np_array], Union[Sequence[int], np_array]]
     ] = None
     """Sparsity structure of ``jac``. Must be given in the form ``((i[0], ..., i[m-1]), (j[0], ..., j[m-1]))``, where ``(i[k], j[k]), k=0,...,m-1`` are the non zero entries of ``jac``"""
 
@@ -85,14 +92,12 @@ IPOPT_RETURN_CODES = {
 
 
 def ipopt(
-    fun: Callable[[numpy.ndarray], float],
-    x0: numpy.ndarray,
+    fun: Callable[[np_array], float],
+    x0: np_array,
     args: Tuple[()],
     *,
-    jac: Union[Callable[[numpy.ndarray, numpy.ndarray], Any], JacEnvelope[Any]],
-    hess: Optional[
-        Callable[[numpy.ndarray, numpy.ndarray, float, numpy.ndarray], Any]
-    ] = None,
+    jac: Union[Callable[[np_array, np_array], Any], JacEnvelope[Any]],
+    hess: Optional[Callable[[np_array, np_array, float, np_array], Any]] = None,
     bounds: Optional[Sequence[Tuple[float, float]]] = None,
     constraints: Constraint,
     tol: Optional[float] = None,
@@ -104,10 +109,10 @@ def ipopt(
     maxiter: Optional[int] = None,
     disp: bool = False,
     obj_scaling: float = 1.0,
-    x_scaling: Optional[numpy.ndarray] = None,
-    constraint_scaling: Optional[numpy.ndarray] = None,
+    x_scaling: Optional[np_array] = None,
+    constraint_scaling: Optional[np_array] = None,
     hess_sparsity_indices: Optional[
-        Tuple[Union[Sequence[int], numpy.ndarray], Union[Sequence[int], numpy.ndarray]]
+        Tuple[Union[Sequence[int], np_array], Union[Sequence[int], np_array]]
     ] = None,
     **kwargs: Any,
 ) -> OptimizeResult:

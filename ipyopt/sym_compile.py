@@ -3,7 +3,7 @@
 import os
 import sys
 import importlib
-from typing import List, Sequence, Tuple, Any, Dict
+from typing import Any, Union, List, Sequence, Tuple, Dict, Callable
 
 from setuptools import Extension, Distribution
 from sympy import Symbol, ccode, Expr
@@ -20,14 +20,14 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
     n: int
     m: int
     f: Expr
-    grad_f: Expr
-    g: Expr
-    jac_g: Expr
+    grad_f: Sequence[Expr]
+    g: Sequence[Expr]
+    jac_g: Sequence[Expr]
     jac_g_sparsity_indices: Tuple[Sequence[int], Sequence[int]]
-    h: Expr
+    h: Sequence[Expr]
     h_sparsity_indices: Tuple[Sequence[int], Sequence[int]]
 
-    def __init__(self, f: Expr, g: Expr):
+    def __init__(self, f: Expr, g: Sequence[Expr]):
         self.f = f
         self.g = g
 
@@ -130,6 +130,10 @@ def generate_c_code(nlp: SymNlp) -> str:
     g_codeblock = c_function_body(nlp.g)
     jac_g_codeblock = c_function_body(nlp.jac_g)
     h_codeblock = c_function_body(nlp.h)
+
+    # Just to give type info to ccode:
+    c_code: Callable[[Union[CodeBlock, Expr]], str] = ccode
+
     return f"""
 #include "Python.h"
 #include <stdbool.h>
@@ -138,29 +142,29 @@ def generate_c_code(nlp: SymNlp) -> str:
 #define M {nlp.m}
 
 static bool f(int n, const double *x, double *obj_value, void *userdata) {{
-  *obj_value = { ccode(nlp.f) };
+  *obj_value = { c_code(nlp.f) };
   return true;
 }}
 
 static bool grad_f(int n, const double *x, double *out, void *userdata) {{
-  { ccode(grad_f_codeblock) }
+  { c_code(grad_f_codeblock) }
   return true;
 }}
 
 static bool g(int n, const double *x, int m, double *out, void *userdata) {{
-  { ccode(g_codeblock) }
+  { c_code(g_codeblock) }
   return true;
 }}
 
 static bool jac_g(int n, const double *x, int m, int n_out, double *out,
                   void *userdata) {{
-  { ccode(jac_g_codeblock) }
+  { c_code(jac_g_codeblock) }
   return true;
 }}
 
 static bool h(int n, const double *x, double obj_factor, int m,
               const double *lambda, int n_out, double *out, void *userdata) {{
-  { ccode(h_codeblock) }
+  { c_code(h_codeblock) }
   return true;
 }}
 

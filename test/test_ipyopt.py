@@ -3,7 +3,7 @@
 
 import unittest
 from unittest import mock
-from typing import Any, Tuple
+from typing import Any, Tuple, TYPE_CHECKING, Callable
 
 import numpy
 import ipyopt
@@ -27,34 +27,42 @@ try:
 except ImportError:
     HAVE_C_CAPSULES = False
 
+if TYPE_CHECKING:
+    # This is only processed by mypy
+    from ipyopt.ipyopt import np_array
+else:
+    np_array = numpy.ndarray
 
-def e_x(n: int) -> numpy.ndarray:
+
+def e_x(n: int) -> np_array:
     """x unit vector"""
     out = numpy.zeros(n)
     out[0] = 1.0
     return out
 
 
-def sparsity_g(n: int) -> Tuple[numpy.ndarray, numpy.ndarray]:
+def sparsity_g(n: int) -> Tuple[np_array, np_array]:
     return (
         numpy.zeros(n, dtype=int),
         numpy.arange(n, dtype=int),
     )
 
 
-def sparsity_h(n: int) -> Tuple[numpy.ndarray, numpy.ndarray]:
+def sparsity_h(n: int) -> Tuple[np_array, np_array]:
     return (numpy.arange(n, dtype=int), numpy.arange(n, dtype=int))
 
 
-def x_L(n: int) -> numpy.ndarray:
+def x_L(n: int) -> np_array:
     return numpy.full((n,), -10.0)
 
 
-def x_U(n: int) -> numpy.ndarray:
+def x_U(n: int) -> np_array:
     return numpy.full((n,), 10.0)
 
 
-def generic_problem(module, with_hess: bool = False, **kwargs: Any) -> ipyopt.Problem:
+def generic_problem(
+    module: Any, with_hess: bool = False, **kwargs: Any
+) -> ipyopt.Problem:
     n = module.n
     eval_jac_g_sparsity_indices = sparsity_g(n)
     eval_h_sparsity_indices = sparsity_h(n)
@@ -63,8 +71,8 @@ def generic_problem(module, with_hess: bool = False, **kwargs: Any) -> ipyopt.Pr
     _x_L = x_L(n)
     _x_U = x_U(n)
 
-    g_L = numpy.array([0.0])
-    g_U = numpy.array([4.0])
+    g_L: np_array = numpy.array([0.0])
+    g_U: np_array = numpy.array([4.0])
 
     p = ipyopt.Problem(
         n,
@@ -85,7 +93,7 @@ def generic_problem(module, with_hess: bool = False, **kwargs: Any) -> ipyopt.Pr
     return p
 
 
-def PyModule(_n, wrap_eval_h=lambda f: f):
+def PyModule(_n: int, wrap_eval_h: Callable[[Any], Any] = lambda f: f) -> Any:
     _e_x = e_x(_n)
 
     class _PyModule:
@@ -95,28 +103,31 @@ def PyModule(_n, wrap_eval_h=lambda f: f):
         n = _n
 
         @staticmethod
-        def f(x: numpy.ndarray):
-            return numpy.sum(x**2)
+        def f(x: np_array) -> float:
+            out: float = numpy.sum(x**2)
+            return out
 
         @staticmethod
-        def grad_f(x: numpy.ndarray, out: numpy.ndarray) -> numpy.ndarray:
+        def grad_f(x: np_array, out: np_array) -> np_array:
             out[()] = 2.0 * x
             return out
 
         @staticmethod
-        def g(x, out):
+        def g(x: np_array, out: np_array) -> np_array:
             """Constraint function: squared distance to (1, 0, ..., 0)"""
             out[0] = numpy.sum((x - _e_x) ** 2)
             return out
 
         @staticmethod
-        def jac_g(x, out):
+        def jac_g(x: np_array, out: np_array) -> np_array:
             out[()] = 2.0 * (x - _e_x)
             return out
 
         @staticmethod
         @wrap_eval_h
-        def h(_x, lagrange, obj_factor, out):
+        def h(
+            _x: np_array, lagrange: np_array, obj_factor: float, out: np_array
+        ) -> np_array:
             out[()] = numpy.full((_n,), 2.0 * (obj_factor + lagrange[0]))
             return out
 
@@ -188,16 +199,16 @@ class TestSimpleProblem(Base.TestSimpleProblem):
     def setUpClass(cls) -> None:
         cls.function_set = c_capsules
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         c_capsules.capsule_set_context(c_capsules.h, None)
         c_capsules.capsule_set_context(c_capsules.intermediate_callback, None)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         c_capsules.capsule_set_context(c_capsules.h, None)
         c_capsules.capsule_set_context(c_capsules.intermediate_callback, None)
 
-    def test_simple_problem(self):
+    def test_simple_problem(self) -> None:
         for with_hess in (True, False):
             h_callback = mock.Mock()
             c_capsules.capsule_set_context(c_capsules.h, h_callback)
@@ -219,7 +230,7 @@ class TestSimpleProblem(Base.TestSimpleProblem):
 class TestSimpleProblemScipy(Base.TestSimpleProblem):
     """Test suite for scipy.LowLevelCallable"""
 
-    def setUp(self):
+    def setUp(self) -> None:
         class ScipyModule:
             """Converts c_capsules into a set of scipy.LowLevelCallable"""
 

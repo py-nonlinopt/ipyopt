@@ -7,7 +7,7 @@ f: PyCapsule
 grad_f: PyCapsule
 g: PyCapsule
 jac_g: PyCapsule
-hess: PyCapsule
+h: PyCapsule
 intermediate_callback: PyCapsule
 
 def capsule_set_context(c: PyCapsule, ctx: Any) -> None: ...

@@ -3,13 +3,18 @@ requires = ["setuptools", "wheel", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [tool.mypy]
+strict = true
+exclude = ["docs/conf.py", "setup.py", "examples/*"]
 
 [[tool.mypy.overrides]]
 module = [
     "scipy.*",
+    "sympy",
     "sympy.*",
     "pyximport.*",
     "setuptools.*",
+    "matplotlib",
+    "matplotlib.*"
 ]
 ignore_missing_imports = true
 

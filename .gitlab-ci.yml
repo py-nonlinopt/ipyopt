@@ -58,8 +58,7 @@ mypy:
   before_script:
     - pip install mypy numpy
   script:
-    - mypy --exclude docs/conf.py .
-    - mypy --strict --exclude docs/conf.py --exclude examples --exclude test/test_ipyopt.py --exclude ipyopt/optimize.py --exclude setup.py .
+    - mypy .
 
 test-examples:
   stage: test
