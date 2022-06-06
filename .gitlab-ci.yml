@@ -30,15 +30,24 @@ build-image:
         --cache=true \
         --cache-ttl=720h
 
-build:
+build-sdist:
+  image: python:slim
   stage: build
   script:
     - sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
-    - /opt/python/cp38-cp38/bin/pip install .
-    - /opt/python/cp38-cp38/bin/python setup.py sdist
+    - pip install numpy # Required in setup.py
+    - python setup.py sdist
+  artifacts:
+    name: sdist
+    paths:
+      - dist/ipyopt-*.tar.gz
+
+build-wheel:
+  stage: build
+  script:
+    - sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
     - >
       for py in /opt/python/cp3* ; do \
-        [ "$py" == /opt/python/cp35-cp35m ] && continue ; \
         "$py"/bin/pip wheel . -w dist ; \
       done
     - >
@@ -49,7 +58,6 @@ build:
     name: wheel
     paths:
       - dist/ipyopt-*manylinux*.whl
-      - dist/ipyopt-*.tar.gz
 
 .install-wheel:
   before_script:
@@ -61,7 +69,7 @@ build:
 
 pylint:
   stage: test
-  image: python:3.9-slim
+  image: python:slim
   extends: .install-wheel
   script:
     - apt-get update && apt-get install -y g++
@@ -74,7 +82,7 @@ pylint:
 
 black:
   stage: test
-  image: python:3.9-slim
+  image: python:slim
   before_script:
     - pip install black
   script:
@@ -82,7 +90,7 @@ black:
 
 mypy:
   stage: test
-  image: python:3.9-slim
+  image: python:slim
   before_script:
     - pip install mypy numpy
   script:
@@ -98,16 +106,29 @@ test-examples:
 test:
   stage: test
   before_script:
-    - /opt/python/cp38-cp38/bin/pip install numpy scipy
-    - /opt/python/cp38-cp38/bin/python setup.py build_ext --inplace
+    # Install built wheels:
+    - >
+      for py in /opt/python/cp3* ; do \
+        [ "$py" == /opt/python/cp311-cp311 ] && continue ; \
+        "$py"/bin/pip install numpy scipy \
+        && "$py"/bin/pip install --only-binary ipyopt --no-index --find-links dist ipyopt ; \
+      done
+    # Delete ipopt folder to remove it from the PYTHON_PATH:
+    - rm -rf ipyopt
   script:
-    - /opt/python/cp38-cp38/bin/python -m unittest
-    - /opt/python/cp38-cp38/bin/python setup_test.py build_ext --inplace
-    - /opt/python/cp38-cp38/bin/python -m unittest
+    - >
+      for py in /opt/python/cp3* ; do \
+        [ "$py" == /opt/python/cp311-cp311 ] && continue ; \
+        # Test without capsules:
+        "$py"/bin/python -m unittest || exit 1 ; \
+        "$py"/bin/python setup_test.py build_ext --inplace ; \
+        # Test with capsules:
+        "$py"/bin/python -m unittest || exit 1  ; \
+      done
 
 pypi:
   stage: deploy
-  image: python:3.9-slim
+  image: python:slim
   variables:
     TWINE_USERNAME: $PYPI_USERNAME
     TWINE_PASSWORD: $PYPI_PASSWORD
@@ -120,7 +141,7 @@ pypi:
 
 pages:
   stage: deploy
-  image: python:3.9-slim
+  image: python:slim
   extends: .install-wheel
   script:
     - pip install numpy scipy cython sympy sphinx sphinx_rtd_theme
