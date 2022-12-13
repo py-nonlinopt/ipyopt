@@ -34,7 +34,7 @@ NlpData::NlpData(Ipopt::Index n, Ipopt::Index m)
 void NlpData::set_initial_values(double *x0, double *mult_g, double *mult_x_L,
                                  double *mult_x_U) {
   _out_x = x0;
-  _out_g = mult_g;
+  _out_lambda = mult_g;
   _out_z_L = mult_x_L;
   _out_z_U = mult_x_U;
 }
