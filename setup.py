@@ -99,7 +99,11 @@ def pkg_config(*packages, **kwargs):
         kwargs.setdefault(flag_map.get(token[:2]), []).append(token[2:].decode())
     define_macros = kwargs.get("define_macros")
     if define_macros:
-        kwargs["define_macros"] = [tuple(d.split()) for d in define_macros]
+        kwargs["define_macros"] = [
+            # Set None as the value of the define if no value is passed:
+            tuple((d.split() + [None])[:2])
+            for d in define_macros
+        ]
     undefined_flags = kwargs.pop(None, None)
     if undefined_flags:
         warnings.warn(f"Ignoring flags {', '.join(undefined_flags)} from pkg-config")
