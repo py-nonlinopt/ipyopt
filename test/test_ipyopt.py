@@ -150,10 +150,10 @@ class Base:
             self.constraint_multipliers = numpy.zeros(1)
             self.n = n
 
-        def _solve(self, **kwargs: Any) -> None:
+        def _solve(self, **kwargs: Any) -> np_array:
             p = generic_problem(self.function_set, **kwargs)
             x, obj, status = p.solve(
-                self.x0,
+                self.x0.copy(),
                 mult_g=self.constraint_multipliers,
                 mult_x_L=self.zl,
                 mult_x_U=self.zu,
@@ -161,6 +161,7 @@ class Base:
             numpy.testing.assert_array_almost_equal(x, numpy.zeros(self.n))
             numpy.testing.assert_array_almost_equal(obj, 0.0)
             numpy.testing.assert_array_equal(status, 0)
+            return x
 
         def test_optimize(self) -> None:
             n = self.function_set.n
@@ -266,6 +267,22 @@ class TestSimpleProblemPy(Base.TestSimpleProblem):
                 self.function_set.h.reset_mock()
                 self._solve(with_hess=with_hess)
                 self.assertEqual(self.function_set.h.called, with_hess)
+
+    def test_zero_gradient_residual_at_solution(self) -> None:
+        x = self._solve()
+        gradient = x.copy()
+        self.function_set.grad_f(x, gradient)
+        jacobian_sparsity = sparsity_g(self.n)
+        jacobian_values = numpy.zeros(len(jacobian_sparsity[0]))
+        self.function_set.jac_g(x, jacobian_values)
+        jacobian = numpy.zeros((len(self.constraint_multipliers), self.n))
+        # Avoid use of scipy.sparse because of scipy being an optional dependency in these tests
+        for i, j, value in zip(*jacobian_sparsity, jacobian_values):
+            jacobian[i, j] = value
+        gradient_residual = (
+            gradient + jacobian.T @ self.constraint_multipliers - self.zl + self.zu
+        )
+        numpy.testing.assert_array_almost_equal(gradient_residual, numpy.zeros(self.n))
 
 
 class TestIPyOpt(unittest.TestCase):
