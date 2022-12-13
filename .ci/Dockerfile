@@ -4,7 +4,7 @@ ARG LAPACK_VERSION=3.10.1
 ARG IPOPT_VERSION=3.12.12
 
 # Install lapack (reference), including blas:
-RUN curl https://www.netlib.org/lapack/lapack-${LAPACK_VERSION}.tgz | tar --no-same-owner -xzf - \
+RUN curl -L https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v${LAPACK_VERSION}.tar.gz | tar --no-same-owner -xzf - \
   && cmake -S lapack-${LAPACK_VERSION} -B build -DCBLAS=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=/usr/local/lib \
   && cmake --build build --target install \
   && rm -rf build lapack-${LAPACK_VERSION}

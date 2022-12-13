@@ -1,3 +1,4 @@
+---
 image: "${CI_REGISTRY_IMAGE}/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG"
 
 stages:
