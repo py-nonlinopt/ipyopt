@@ -141,8 +141,9 @@ print(f"Going to call solve with x0 = {x0}")
 zl = zeros(nvar)
 zu = zeros(nvar)
 constraint_multipliers = zeros(ncon)
-_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
 
+_x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
+# NOTE: x0 is mutated so that x0 is now equal to the solution _x
 
 print("Solution of the primal variables, x")
 print("x =", _x)
