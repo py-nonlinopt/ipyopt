@@ -75,6 +75,8 @@ nlp.solve(...)
 
 For an example, see [examples/hs071.py](examples/hs071.py).
 
+Note that the `ipyopt.Problem.solve(.)` mutates some its arguments, including the initial guess for the variables, and the multipliers.
+
 For maximal performance, there is also support for [PyCapsules](https://docs.python.org/3/c-api/capsule.html) /
 [scipy.LowLevelCallable](https://docs.scipy.org/doc/scipy/reference/generated/scipy.LowLevelCallable.html). By
 using this approach, there will be no C++ <-> Python interactions
