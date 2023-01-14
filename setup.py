@@ -19,9 +19,9 @@ def main():
         description="Python interface to Ipopt",
         long_description=(Path(__file__).parent / "README.md").read_text(),
         long_description_content_type="text/markdown",
-        author="Gerhard Bräunlich",
-        author_email="g.braeunlich@disroot.org",
-        url="https://gitlab.com/g-braeunlich/ipyopt",
+        author="Gerhard Bräunlich, Nikitas Rontsis",
+        author_email="g.braeunlich@disroot.org, nrontsis@gmail.com",
+        url="https://gitlab.com/ipyopt-devs/ipyopt",
         packages=["ipyopt"],
         package_data={"ipyopt": ["py.typed"]},
         zip_safe=False,
@@ -50,8 +50,8 @@ def main():
             "Programming Language :: Python :: 3",
         ],
         project_urls={
-            "Documentation": "https://g-braeunlich.gitlab.io/ipyopt",
-            "Source": "https://gitlab.com/g-braeunlich/ipyopt",
+            "Documentation": "https://ipyopt-devs.gitlab.io/ipyopt",
+            "Source": "https://gitlab.com/ipyopt-devs/ipyopt",
         },
     )
 

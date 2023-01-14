@@ -1,4 +1,4 @@
-[![pipeline status](https://gitlab.com/g-braeunlich/ipyopt/badges/master/pipeline.svg)](https://gitlab.com/g-braeunlich/ipyopt/-/commits/master)
+[![pipeline status](https://gitlab.com/ipyopt-devs/ipyopt/badges/main/pipeline.svg)](https://gitlab.com/ipyopt-devs/ipyopt/-/commits/main)
 [![python version](https://img.shields.io/pypi/pyversions/ipyopt.svg?logo=python&logoColor=white)](https://pypi.org/project/ipyopt)
 [![latest version](https://img.shields.io/pypi/v/ipyopt.svg)](https://pypi.org/project/ipyopt)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -85,7 +85,7 @@ during Ipopt optimization. Here is an example
 [test/test_ipyopt.py](test/test_ipyopt.py) (Python code using the
 PyCapsules provided by the C code).
 
-For more details and hints, see the [docs](https://g-braeunlich.gitlab.io/ipyopt).
+For more details and hints, see the [docs](https://ipyopt-devs.gitlab.io/ipyopt).
 
 ## Build
 
@@ -100,7 +100,7 @@ For more details and hints, see the [docs](https://g-braeunlich.gitlab.io/ipyopt
 To build from source, first, get the latest source code using:
 
 ```sh
-git clone https://gitlab.com/g-braeunlich/ipyopt.git
+git clone https://gitlab.com/ipyopt-devs/ipyopt.git
 ```
 
 Check whether a file `ipopt.pc` was distributed with your Ipopt installation.
