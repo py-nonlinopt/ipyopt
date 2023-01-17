@@ -579,6 +579,9 @@ solve(x: numpy.ndarray[numpy.float64], mult_g: Optional[numpy.ndarray[numpy.floa
 Call Ipopt to solve problem created before and return
 a tuple containing the final solution ``x``, the value of the final objective function
 and the return status code of Ipopt.
+For performance reasons, to avoid copying, the argument ``x`` is mutated by this function and it will be the same object as
+the first element of the returned tuple.
+To keep the initial value of ``x``, the user is responsible to make a copy before a call to this method.
 ``mult_g``, ``mult_x_L``, ``mult_x_U`` are optional keyword only arguments
 allowing previous values of bound multipliers to be passed in warm
 start applications.
