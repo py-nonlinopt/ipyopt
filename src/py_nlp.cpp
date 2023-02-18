@@ -5,14 +5,26 @@
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
 
-static PyObject *wrap_array(unsigned int n, Ipopt::Number *x) {
+namespace {
+
+PyObject *wrap_array(unsigned int n, Ipopt::Number *x) {
   npy_intp dims[] = {static_cast<npy_intp>(n)};
   return PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char *)x);
 }
-static PyObject *wrap_const_array(unsigned int n, const Ipopt::Number *x) {
+
+PyObject *wrap_const_array(unsigned int n, const Ipopt::Number *x) {
   npy_intp dims[] = {static_cast<npy_intp>(n)};
   return PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (char *)x);
 }
+
+bool consume(PyObject *obj) {
+  if (obj == nullptr)
+    return false;
+  Py_XDECREF(obj);
+  return true;
+}
+
+} // namespace
 
 namespace ipyopt {
 namespace py {
@@ -25,7 +37,6 @@ bool F::operator()(Ipopt::Index n, const Ipopt::Number *x,
   if (!py_x_arr)
     return false;
   PyObject *return_value = py_call(_obj, py_x_arr);
-  Py_XDECREF(py_x_arr);
   if (return_value == nullptr)
     return false;
   obj_value = PyFloat_AsDouble(return_value);
@@ -39,30 +50,29 @@ bool F::operator()(Ipopt::Index n, const Ipopt::Number *x,
 }
 bool GradF::operator()(Ipopt::Index n, const Ipopt::Number *x,
                        Ipopt::Number *grad_f) {
-  return py_call(_obj, wrap_const_array(n, x), wrap_array(n, grad_f)) !=
-         nullptr;
+  return consume(py_call(_obj, wrap_const_array(n, x), wrap_array(n, grad_f)));
 }
 
 bool G::operator()(Ipopt::Index n, const Ipopt::Number *x, Ipopt::Index m,
                    Ipopt::Number *g) {
-  return py_call(_obj, wrap_const_array(n, x), wrap_array(m, g)) != nullptr;
+  return consume(py_call(_obj, wrap_const_array(n, x), wrap_array(m, g)));
 }
 
 bool JacG::operator()(Ipopt::Index n, const Ipopt::Number *x,
                       Ipopt::Index /*m*/, Ipopt::Index nele_jac,
                       Ipopt::Number *values) {
   // return the values of the Jacobian of the constraints
-  return py_call(_obj, wrap_const_array(n, x), wrap_array(nele_jac, values)) !=
-         nullptr;
+  return consume(
+      py_call(_obj, wrap_const_array(n, x), wrap_array(nele_jac, values)));
 }
 
 bool H::operator()(Ipopt::Index n, const Ipopt::Number *x,
                    Ipopt::Number obj_factor, Ipopt::Index m,
                    const Ipopt::Number *lambda, Ipopt::Index nele_hess,
                    Ipopt::Number *values) {
-  return py_call(_obj, wrap_const_array(n, x), wrap_const_array(m, lambda),
-                 PyFloat_FromDouble(obj_factor),
-                 wrap_array(nele_hess, values)) != nullptr;
+  return consume(
+      py_call(_obj, wrap_const_array(n, x), wrap_const_array(m, lambda),
+              PyFloat_FromDouble(obj_factor), wrap_array(nele_hess, values)));
 }
 
 bool IntermediateCallback::operator()(
@@ -72,25 +82,25 @@ bool IntermediateCallback::operator()(
     Ipopt::Number alpha_du, Ipopt::Number alpha_pr, Ipopt::Index ls_trials,
     const Ipopt::IpoptData * /*ip_data*/,
     Ipopt::IpoptCalculatedQuantities * /*ip_cq*/) {
-  PyObject *result = py_call(
+  auto *result = py_call(
       _obj, PyLong_FromLong(mode), PyLong_FromLong(iter),
       PyFloat_FromDouble(obj_value), PyFloat_FromDouble(inf_pr),
       PyFloat_FromDouble(inf_du), PyFloat_FromDouble(mu),
       PyFloat_FromDouble(d_norm), PyFloat_FromDouble(regularization_size),
       PyFloat_FromDouble(alpha_du), PyFloat_FromDouble(alpha_pr),
       PyLong_FromLong(ls_trials));
-  if (!result) {
+  if (result == nullptr) {
     PyErr_Print();
     return false;
   }
   bool result_as_bool = PyLong_AsLong(result);
+  Py_DECREF(result);
 
   if (PyErr_Occurred()) {
     PyErr_Format(PyExc_RuntimeError,
                  "Python function intermediate_callback returned non bool");
     return false;
   }
-  Py_DECREF(result);
   return result_as_bool;
 }
 } // namespace py

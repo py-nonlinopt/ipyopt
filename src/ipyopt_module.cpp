@@ -611,6 +611,9 @@ static PyObject *py_solve(PyObject *self, PyObject *args, PyObject *keywords) {
   auto status = py_problem->bundle->optimize();
   if (PyErr_Occurred())
     return nullptr;
+  Py_XINCREF(py_x0); // This is an existing object.
+  // If we would not increase the ref counter here, a reference would get lost if the
+  // tuple gets garbage collected.
   return py_tuple((PyObject *)py_x0,
                   PyFloat_FromDouble(py_problem->nlp->out_obj_value),
                   PyLong_FromLong(status));
