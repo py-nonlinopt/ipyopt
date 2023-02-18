@@ -198,8 +198,7 @@ static bool parse_scipy_low_level_callable(PyObject *obj, LLC &llc) {
 /// This is for python memory management (parse py object and keep a pointer to the original py object at the same time)
 template <class T> struct WithOwnedPyObject {
   T callable;
-  PyObject *owned;
-  WithOwnedPyObject() : owned{nullptr} {}
+  PyObject *owned = nullptr;
 };
 
 template <const char *ArgName, class Variant, class PyCallable, class CCallable>
