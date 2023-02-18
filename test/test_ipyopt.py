@@ -179,9 +179,7 @@ class Base:
                     ub=numpy.array([4.0]),
                     jac_sparsity_indices=sparsity_g(n),
                 ),
-                options=dict(
-                    hess_sparsity_indices=sparsity_h(n),
-                ),
+                options={"hess_sparsity_indices": sparsity_h(n)},
             )
             numpy.testing.assert_array_almost_equal(result.x, numpy.zeros(self.n))
             numpy.testing.assert_array_almost_equal(result.fun, 0.0)
