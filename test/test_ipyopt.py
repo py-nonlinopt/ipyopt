@@ -1,9 +1,11 @@
 """Unittests"""
 # pylint: disable=missing-function-docstring
 
+import sys
+import gc
 import unittest
 from unittest import mock
-from typing import Any, Tuple, TYPE_CHECKING, Callable
+from typing import Any, Tuple, Dict, TYPE_CHECKING, Callable
 
 import numpy
 import ipyopt
@@ -108,9 +110,8 @@ def PyModule(_n: int, wrap_eval_h: Callable[[Any], Any] = lambda f: f) -> Any:
             return out
 
         @staticmethod
-        def grad_f(x: np_array, out: np_array) -> np_array:
+        def grad_f(x: np_array, out: np_array) -> None:
             out[()] = 2.0 * x
-            return out
 
         @staticmethod
         def g(x: np_array, out: np_array) -> np_array:
@@ -188,6 +189,50 @@ class Base:
             self.assertTrue(result.nfev > 0)
             self.assertTrue(result.njev > 0)
             self.assertTrue(result.nit > 0)
+
+        def test_refcount(self) -> None:
+            def f_refcounts(function_set: Any, with_hess: bool) -> Dict[str, int]:
+                f_names: Tuple[str, ...] = ("f", "grad_f", "g", "jac_g")
+                if with_hess:
+                    f_names += ("h",)
+                return {
+                    name: sys.getrefcount(getattr(function_set, name))
+                    for name in f_names
+                }
+
+            for with_hess in (True, False):
+                with self.subTest(with_hess=with_hess):
+                    x0 = self.x0.copy()
+                    gc.collect()
+                    refcounts_before = {
+                        **f_refcounts(self.function_set, with_hess=with_hess),
+                        "x0": sys.getrefcount(x0),
+                        "mult_g": sys.getrefcount(self.constraint_multipliers),
+                        "mult_x_L": sys.getrefcount(self.zl),
+                        "mult_x_U": sys.getrefcount(self.zu),
+                    }
+                    p = generic_problem(self.function_set, with_hess=with_hess)
+                    # The var status is difficult to track, as it is 0 on success.
+                    # There are many references to 0 around and changing on many calls.
+                    _x, obj, status = p.solve(
+                        x0,
+                        mult_g=self.constraint_multipliers,
+                        mult_x_L=self.zl,
+                        mult_x_U=self.zu,
+                    )
+                    del status
+                    del p
+                    del _x
+                    gc.collect()
+                    refcounts_after = {
+                        **f_refcounts(self.function_set, with_hess=with_hess),
+                        "x0": sys.getrefcount(x0),
+                        "mult_g": sys.getrefcount(self.constraint_multipliers),
+                        "mult_x_L": sys.getrefcount(self.zl),
+                        "mult_x_U": sys.getrefcount(self.zu),
+                    }
+                    self.assertEqual(refcounts_before, refcounts_after)
+                    self.assertEqual(sys.getrefcount(obj), 2)
 
 
 @unittest.skipIf(not HAVE_C_CAPSULES, "c_capsules not built")
