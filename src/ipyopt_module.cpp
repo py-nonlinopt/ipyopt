@@ -669,26 +669,20 @@ static PyObject *py_set_problem_scaling(PyObject *self, PyObject *args,
   Py_RETURN_NONE;
 }
 
-static void dict_add_str(PyObject *dict, const char *key, const char *val) {
-  auto str = PyUnicode_FromString(val);
-  PyDict_SetItemString(dict, key, str);
-}
-static void dict_add_int(PyObject *dict, const char *key, int val) {
-  auto str = PyLong_FromLong(val);
-  PyDict_SetItemString(dict, key, str);
-}
-
 static PyObject *py_ipopt_type(IpoptOption::Type t) {
+  PyObject *obj;
   switch (t) {
   case IpoptOption::Integer:
-    return (PyObject *)&PyLong_Type;
+    obj = (PyObject *)&PyLong_Type;
   case IpoptOption::Number:
-    return (PyObject *)&PyFloat_Type;
+    obj = (PyObject *)&PyFloat_Type;
   case IpoptOption::String:
-    return (PyObject *)&PyUnicode_Type;
+    obj = (PyObject *)&PyUnicode_Type;
   default:
-    return Py_None;
+    obj = Py_None;
   }
+  Py_INCREF(obj);
+  return obj;
 }
 
 static char GET_IPOPT_OPTIONS_DOC[] = R"mdoc(
@@ -712,31 +706,28 @@ static PyObject *py_get_ipopt_options(PyObject *, PyObject *) {
   auto lst = PyList_New(options.size());
   auto i = std::size_t{0};
   for (const auto &opt : options) {
-    auto dict = PyDict_New();
-    dict_add_str(dict, "name", opt.name.data());
-    PyDict_SetItemString(dict, "type", py_ipopt_type(opt.type));
-    dict_add_str(dict, "description_short", opt.description_short.data());
-    dict_add_str(dict, "description_long", opt.description_long.data());
-    dict_add_str(dict, "category", opt.category.data());
+    auto *dict = py_dict(
+        std::make_tuple("name", opt.name.data()),
+        std::make_tuple("type", py_ipopt_type(opt.type)),
+        std::make_tuple("description_short", opt.description_short.data()),
+        std::make_tuple("description_long", opt.description_long.data()),
+        std::make_tuple("category", opt.category.data()));
     PyList_SET_ITEM(lst, i++, dict);
   }
-  Py_XINCREF(lst);
   return lst;
 }
 
 PyObject *py_get_stats(PyObject *self, void *) {
-  auto dict = PyDict_New();
   auto nlp = ((PyNlpApp *)self)->nlp;
-  dict_add_int(dict, "n_eval_f", nlp->out_stats.n_eval_f);
-  dict_add_int(dict, "n_eval_grad_f", nlp->out_stats.n_eval_grad_f);
-  dict_add_int(dict, "n_eval_g_eq", nlp->out_stats.n_eval_g_eq);
-  dict_add_int(dict, "n_eval_jac_g_eq", nlp->out_stats.n_eval_jac_g_eq);
-  dict_add_int(dict, "n_eval_g_ineq", nlp->out_stats.n_eval_g_ineq);
-  dict_add_int(dict, "n_eval_jac_g_ineq", nlp->out_stats.n_eval_jac_g_ineq);
-  dict_add_int(dict, "n_eval_h", nlp->out_stats.n_eval_h);
-  dict_add_int(dict, "n_iter", nlp->out_stats.n_iter);
-  Py_XINCREF(dict);
-  return dict;
+  return py_dict(
+      std::make_tuple("n_eval_f", nlp->out_stats.n_eval_f),
+      std::make_tuple("n_eval_grad_f", nlp->out_stats.n_eval_grad_f),
+      std::make_tuple("n_eval_g_eq", nlp->out_stats.n_eval_g_eq),
+      std::make_tuple("n_eval_jac_g_eq", nlp->out_stats.n_eval_jac_g_eq),
+      std::make_tuple("n_eval_g_ineq", nlp->out_stats.n_eval_g_ineq),
+      std::make_tuple("n_eval_jac_g_ineq", nlp->out_stats.n_eval_jac_g_ineq),
+      std::make_tuple("n_eval_h", nlp->out_stats.n_eval_h),
+      std::make_tuple("n_iter", nlp->out_stats.n_iter));
 }
 
 // Begin Python Module code section
