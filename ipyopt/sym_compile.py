@@ -15,7 +15,8 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
     """Symbolic definition of a NLP
 
     Only, sympy expressions for f, g needed, derivatives will be calculated automatically.
-    The method :meth:`compile` will compile all expressions into PyCapsules and return them in a dict."""
+    The method :meth:`compile` will compile all expressions into PyCapsules and return them in a dict.
+    """
 
     n: int
     m: int
