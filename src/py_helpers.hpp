@@ -2,6 +2,8 @@
 #define _PY_HELPERS_H_
 
 #include "Python.h"
+#include <array>
+#include <optional>
 #include <tuple>
 
 /**
@@ -44,10 +46,19 @@ PyObject *py_call(PyObject *callback, Args... args) {
   return result;
 }
 
+/**
+ * @brief Converts a c string to a str PyObject.
+ */
 inline PyObject *to_py_object(const char *val) {
   return PyUnicode_FromString(val);
 }
+/**
+ * @brief Converts an int to a int PyObject.
+ */
 inline PyObject *to_py_object(const int val) { return PyLong_FromLong(val); }
+/**
+ * @brief "Converts" a PyObject to PyObject (This allow passing PyObject to `py_dict`).
+ */
 inline PyObject *to_py_object(PyObject *obj) { return obj; }
 
 namespace detail {
@@ -83,6 +94,78 @@ template <typename... Args> PyObject *py_dict(Args... key_val_pairs) {
   auto *dict = PyDict_New();
   detail::py_dict_add_key_val_pairs(dict, key_val_pairs...);
   return dict;
+}
+
+/**
+ * @brief Converts a PyTuple to a std::array<PyObject*, N>.
+ *
+ * Returns an array filled with nullptr and sets the python error indicator on failure.
+ */
+template <std::size_t N>
+std::array<PyObject *, N> from_py_tuple(PyObject *obj,
+                                        const char *err_context) {
+  if (!PyTuple_Check(obj)) {
+    PyErr_Format(PyExc_TypeError, "%s: a tuple is needed.", err_context);
+    return std::array<PyObject *, N>{};
+  }
+  if (PyTuple_Size(obj) != N) {
+    PyErr_Format(PyExc_TypeError,
+                 "%s: a tuple of size %d is needed. Found tuple of size %d",
+                 err_context, N, PyTuple_Size(obj));
+    return std::array<PyObject *, N>{};
+  }
+  auto t = std::array<PyObject *, N>{};
+  for (std::size_t i = 0; i < N; i++)
+    t[i] = PyTuple_GetItem(obj, i);
+  return t;
+}
+
+template <typename T> std::optional<T> from_py(PyObject *obj);
+
+/**
+ * @brief Converts a PyObject int to a C int.
+ *
+ * Returns std::nullopt on failure.
+ */
+template <> inline std::optional<int> from_py(PyObject *obj) {
+  auto ret = PyLong_AsLong(obj);
+  if (PyErr_Occurred())
+    return std::nullopt;
+  return ret;
+}
+
+/**
+ * @brief Converts a PySequence to a std::vector<T>, parsing items using from_py.
+ *
+ * Returns an empty vector and sets the python error indicator on failure.
+ */
+template <typename T>
+std::vector<T> from_py_sequence(PyObject *obj, const char *err_context) {
+  auto sequence = PySequence_Fast(obj, "");
+  if (sequence == nullptr) {
+    PyErr_Format(PyExc_TypeError, "%s: a sequence is needed.", err_context);
+    return std::vector<T>{};
+  }
+  const auto size = PySequence_Fast_GET_SIZE(sequence);
+  if (size < 0) {
+    PyErr_Format(PyExc_RuntimeError, "%s: Got negative size", err_context);
+    return std::vector<T>{};
+  }
+  auto vec = std::vector<T>(size);
+  auto **seq_items = PySequence_Fast_ITEMS(sequence);
+  for (std::size_t i = 0; i < (std::size_t)size; i++) {
+    if (auto val = from_py<T>(seq_items[i]))
+      vec[i] = val.value();
+    else {
+      Py_XDECREF(sequence);
+      PyErr_Format(PyExc_TypeError, "%s[%d]: invalid type. Expected int",
+                   err_context, i);
+      return std::vector<T>{};
+    }
+  }
+  Py_XDECREF(sequence);
+
+  return vec;
 }
 
 #endif

@@ -44,50 +44,27 @@ static bool check_vec_size(const std::vector<T> &vec, unsigned int size,
                vec.size(), size);
   return false;
 }
+
 static bool parse_sparsity_indices(PyObject *obj, SparsityIndices &idx) {
-  PyObject *rows, *cols;
-  Py_ssize_t n, i;
-  if (!PyTuple_Check(obj)) {
-    PyErr_Format(PyExc_TypeError,
-                 "Sparsity info: a tuple of size 2 is needed.");
+  auto [py_rows, py_cols] = from_py_tuple<2>(obj, "Sparsity info");
+  if (PyErr_Occurred())
     return false;
-  }
-  if (PyTuple_Size(obj) != 2) {
-    PyErr_Format(
-        PyExc_TypeError,
-        "Sparsity info: a tuple of size 2 is needed. Found tuple of size %d",
-        PyTuple_Size(obj));
+  const auto rows = from_py_sequence<int>(py_rows, "Sparsity info");
+  if (PyErr_Occurred())
     return false;
-  }
-  rows = PyTuple_GetItem(obj, 0);
-  cols = PyTuple_GetItem(obj, 1);
-  n = PyObject_Length(rows);
-  if (n != PyObject_Length(cols)) {
-    PyErr_Format(PyExc_TypeError,
+  const auto cols = from_py_sequence<int>(py_cols, "Sparsity info");
+  if (PyErr_Occurred())
+    return false;
+
+  if (rows.size() != cols.size()) {
+    PyErr_Format(PyExc_ValueError,
                  "Sparsity info: length of row indices (%d) does not match "
                  "lenth of column indices (%d)",
-                 n, PyObject_Length(cols));
+                 rows.size(), cols.size());
     return false;
   }
-  std::vector<int> row, col;
-  PyObject *row_iter = PyObject_GetIter(rows);
-  PyObject *col_iter = PyObject_GetIter(cols);
-  PyObject *row_item, *col_item;
-  for (i = 0; i < n; i++) {
-    row_item = PyIter_Next(row_iter);
-    col_item = PyIter_Next(col_iter);
-    if (row_item != nullptr)
-      row.push_back(PyLong_AsLong(row_item));
-    if (col_item != nullptr)
-      col.push_back(PyLong_AsLong(col_item));
-    if (row_item == nullptr || col_item == nullptr ||
-        PyErr_Occurred() != nullptr) {
-      PyErr_Format(PyExc_TypeError,
-                   "Sparsity info: Row an column indices must be integers");
-      return false;
-    }
-  }
-  idx = std::make_tuple(row, col);
+
+  idx = std::make_tuple(rows, cols);
   return true;
 }
 static bool check_non_negative(int n, const char *name) {
