@@ -7,6 +7,7 @@
 #include "IpOrigIpoptNLP.hpp"
 #include "IpTNLP.hpp"
 
+#include <functional>
 #include <variant>
 #include <vector>
 

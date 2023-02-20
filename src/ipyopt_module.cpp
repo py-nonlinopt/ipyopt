@@ -44,50 +44,27 @@ static bool check_vec_size(const std::vector<T> &vec, unsigned int size,
                vec.size(), size);
   return false;
 }
+
 static bool parse_sparsity_indices(PyObject *obj, SparsityIndices &idx) {
-  PyObject *rows, *cols;
-  Py_ssize_t n, i;
-  if (!PyTuple_Check(obj)) {
-    PyErr_Format(PyExc_TypeError,
-                 "Sparsity info: a tuple of size 2 is needed.");
+  auto [py_rows, py_cols] = from_py_tuple<2>(obj, "Sparsity info");
+  if (PyErr_Occurred())
     return false;
-  }
-  if (PyTuple_Size(obj) != 2) {
-    PyErr_Format(
-        PyExc_TypeError,
-        "Sparsity info: a tuple of size 2 is needed. Found tuple of size %d",
-        PyTuple_Size(obj));
+  const auto rows = from_py_sequence<int>(py_rows, "Sparsity info");
+  if (PyErr_Occurred())
     return false;
-  }
-  rows = PyTuple_GetItem(obj, 0);
-  cols = PyTuple_GetItem(obj, 1);
-  n = PyObject_Length(rows);
-  if (n != PyObject_Length(cols)) {
-    PyErr_Format(PyExc_TypeError,
+  const auto cols = from_py_sequence<int>(py_cols, "Sparsity info");
+  if (PyErr_Occurred())
+    return false;
+
+  if (rows.size() != cols.size()) {
+    PyErr_Format(PyExc_ValueError,
                  "Sparsity info: length of row indices (%d) does not match "
                  "lenth of column indices (%d)",
-                 n, PyObject_Length(cols));
+                 rows.size(), cols.size());
     return false;
   }
-  std::vector<int> row, col;
-  PyObject *row_iter = PyObject_GetIter(rows);
-  PyObject *col_iter = PyObject_GetIter(cols);
-  PyObject *row_item, *col_item;
-  for (i = 0; i < n; i++) {
-    row_item = PyIter_Next(row_iter);
-    col_item = PyIter_Next(col_iter);
-    if (row_item != nullptr)
-      row.push_back(PyLong_AsLong(row_item));
-    if (col_item != nullptr)
-      col.push_back(PyLong_AsLong(col_item));
-    if (row_item == nullptr || col_item == nullptr ||
-        PyErr_Occurred() != nullptr) {
-      PyErr_Format(PyExc_TypeError,
-                   "Sparsity info: Row an column indices must be integers");
-      return false;
-    }
-  }
-  idx = std::make_tuple(row, col);
+
+  idx = std::make_tuple(rows, cols);
   return true;
 }
 static bool check_non_negative(int n, const char *name) {
@@ -198,8 +175,7 @@ static bool parse_scipy_low_level_callable(PyObject *obj, LLC &llc) {
 /// This is for python memory management (parse py object and keep a pointer to the original py object at the same time)
 template <class T> struct WithOwnedPyObject {
   T callable;
-  PyObject *owned;
-  WithOwnedPyObject() : owned{nullptr} {}
+  PyObject *owned = nullptr;
 };
 
 template <const char *ArgName, class Variant, class PyCallable, class CCallable>
@@ -280,40 +256,46 @@ static void reformat_error(const char *f_name) {
 }
 
 /// Python memory management:
-constexpr std::size_t max_owned_py_objects = 6;
+constexpr std::size_t N_MEMBER_SLOTS = 6;
+
+template <typename... Obj>
+void receive_members(PyObject *member_slots[N_MEMBER_SLOTS], Obj *...members) {
+  static_assert(sizeof...(members) <= N_MEMBER_SLOTS);
+  std::size_t i = 0;
+  for (auto *obj : {members...}) {
+    Py_XINCREF(obj);
+    member_slots[i++] = obj;
+  }
+}
 
 extern "C" {
 typedef struct {
-  PyObject_HEAD NlpBundle *bundle;
+  PyObject_HEAD // ---
+      NlpBundle *bundle;
   NlpData *nlp;
   // Python memory management:
-  PyObject *owned_py_objects[max_owned_py_objects];
+  PyObject *member_slots[N_MEMBER_SLOTS];
 } PyNlpApp;
 
 static int py_ipopt_problem_clear(PyNlpApp *self) {
-  for (std::size_t i = 0; i < max_owned_py_objects; i++)
-    if (self->owned_py_objects[i] != nullptr) {
-      Py_CLEAR(self->owned_py_objects[i]);
-      self->owned_py_objects[i] = nullptr;
-    }
+  for (std::size_t i = 0; i < N_MEMBER_SLOTS; i++)
+    Py_CLEAR(self->member_slots[i]);
   return 0;
 }
-static void py_ipopt_problem_dealloc(PyObject *self) {
-  auto obj = (PyNlpApp *)self;
-
+static void py_ipopt_problem_dealloc(PyNlpApp *self) {
   PyObject_GC_UnTrack(self);
-  py_ipopt_problem_clear(obj);
-  if (obj->bundle != nullptr) {
-    delete obj->bundle;
-    obj->bundle = nullptr;
+  py_ipopt_problem_clear(self);
+  if (self->bundle != nullptr) {
+    delete self->bundle;
+    self->bundle = nullptr;
   }
-  Py_TYPE(self)->tp_free(self);
+  Py_TYPE(self)->tp_free((PyObject *)self);
 }
 static int py_ipopt_problem_traverse(PyNlpApp *self, visitproc visit,
                                      void *arg) {
-  for (std::size_t i = 0; i < max_owned_py_objects; i++)
-    if (self->owned_py_objects[i] != nullptr) {
-      Py_VISIT(self->owned_py_objects[i]);
+  for (std::size_t i = 0; i < N_MEMBER_SLOTS; i++)
+    if (self->member_slots[i] != nullptr) {
+      Py_VISIT(self->member_slots[i]);
     }
   return 0;
 }
@@ -452,8 +434,8 @@ Args:
 static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
                                       PyObject *keywords) {
   auto *self = (PyNlpApp *)type->tp_alloc(type, 0);
-  for (std::size_t i = 0; i < max_owned_py_objects; i++)
-    self->owned_py_objects[i] = nullptr;
+  for (std::size_t i = 0; i < N_MEMBER_SLOTS; i++)
+    self->member_slots[i] = nullptr;
   self->bundle = new NlpBundle{};
   if (!*self->bundle) {
     delete self->bundle;
@@ -548,15 +530,10 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
     return nullptr;
   }
 
-  PyObject *owned_py_objects[max_owned_py_objects] = {
-      py_eval_f.owned, py_eval_grad_f.owned,
-      py_eval_g.owned, py_eval_jac_g.owned,
-      py_eval_h.owned, py_intermediate_callback.owned};
-  for (std::size_t i = 0; i < max_owned_py_objects; i++) {
-    self->owned_py_objects[i] = owned_py_objects[i];
-    if (owned_py_objects[i] != nullptr)
-      Py_XINCREF(owned_py_objects[i]);
-  }
+  receive_members(self->member_slots, py_eval_f.owned, py_eval_grad_f.owned,
+                  py_eval_g.owned, py_eval_jac_g.owned, py_eval_h.owned,
+                  py_intermediate_callback.owned);
+
   Ipopt::TNLP *nlp;
   std::tie(nlp, self->nlp) =
       build_nlp(py_eval_f.callable, py_eval_grad_f.callable, py_eval_g.callable,
@@ -612,6 +589,9 @@ static PyObject *py_solve(PyObject *self, PyObject *args, PyObject *keywords) {
   auto status = py_problem->bundle->optimize();
   if (PyErr_Occurred())
     return nullptr;
+  Py_XINCREF(py_x0); // This is an existing object.
+  // If we would not increase the ref counter here, a reference would get lost if the
+  // tuple gets garbage collected.
   return py_tuple((PyObject *)py_x0,
                   PyFloat_FromDouble(py_problem->nlp->out_obj_value),
                   PyLong_FromLong(status));
@@ -667,26 +647,20 @@ static PyObject *py_set_problem_scaling(PyObject *self, PyObject *args,
   Py_RETURN_NONE;
 }
 
-static void dict_add_str(PyObject *dict, const char *key, const char *val) {
-  auto str = PyUnicode_FromString(val);
-  PyDict_SetItemString(dict, key, str);
-}
-static void dict_add_int(PyObject *dict, const char *key, int val) {
-  auto str = PyLong_FromLong(val);
-  PyDict_SetItemString(dict, key, str);
-}
-
 static PyObject *py_ipopt_type(IpoptOption::Type t) {
+  PyObject *obj;
   switch (t) {
   case IpoptOption::Integer:
-    return (PyObject *)&PyLong_Type;
+    obj = (PyObject *)&PyLong_Type;
   case IpoptOption::Number:
-    return (PyObject *)&PyFloat_Type;
+    obj = (PyObject *)&PyFloat_Type;
   case IpoptOption::String:
-    return (PyObject *)&PyUnicode_Type;
+    obj = (PyObject *)&PyUnicode_Type;
   default:
-    return Py_None;
+    obj = Py_None;
   }
+  Py_INCREF(obj);
+  return obj;
 }
 
 static char GET_IPOPT_OPTIONS_DOC[] = R"mdoc(
@@ -710,48 +684,38 @@ static PyObject *py_get_ipopt_options(PyObject *, PyObject *) {
   auto lst = PyList_New(options.size());
   auto i = std::size_t{0};
   for (const auto &opt : options) {
-    auto dict = PyDict_New();
-    dict_add_str(dict, "name", opt.name.data());
-    PyDict_SetItemString(dict, "type", py_ipopt_type(opt.type));
-    dict_add_str(dict, "description_short", opt.description_short.data());
-    dict_add_str(dict, "description_long", opt.description_long.data());
-    dict_add_str(dict, "category", opt.category.data());
+    auto *dict = py_dict(
+        std::make_tuple("name", opt.name.data()),
+        std::make_tuple("type", py_ipopt_type(opt.type)),
+        std::make_tuple("description_short", opt.description_short.data()),
+        std::make_tuple("description_long", opt.description_long.data()),
+        std::make_tuple("category", opt.category.data()));
     PyList_SET_ITEM(lst, i++, dict);
   }
-  Py_XINCREF(lst);
   return lst;
 }
 
 PyObject *py_get_stats(PyObject *self, void *) {
-  auto dict = PyDict_New();
   auto nlp = ((PyNlpApp *)self)->nlp;
-  dict_add_int(dict, "n_eval_f", nlp->out_stats.n_eval_f);
-  dict_add_int(dict, "n_eval_grad_f", nlp->out_stats.n_eval_grad_f);
-  dict_add_int(dict, "n_eval_g_eq", nlp->out_stats.n_eval_g_eq);
-  dict_add_int(dict, "n_eval_jac_g_eq", nlp->out_stats.n_eval_jac_g_eq);
-  dict_add_int(dict, "n_eval_g_ineq", nlp->out_stats.n_eval_g_ineq);
-  dict_add_int(dict, "n_eval_jac_g_ineq", nlp->out_stats.n_eval_jac_g_ineq);
-  dict_add_int(dict, "n_eval_h", nlp->out_stats.n_eval_h);
-  dict_add_int(dict, "n_iter", nlp->out_stats.n_iter);
-  Py_XINCREF(dict);
-  return dict;
+  return py_dict(
+      std::make_tuple("n_eval_f", nlp->out_stats.n_eval_f),
+      std::make_tuple("n_eval_grad_f", nlp->out_stats.n_eval_grad_f),
+      std::make_tuple("n_eval_g_eq", nlp->out_stats.n_eval_g_eq),
+      std::make_tuple("n_eval_jac_g_eq", nlp->out_stats.n_eval_jac_g_eq),
+      std::make_tuple("n_eval_g_ineq", nlp->out_stats.n_eval_g_ineq),
+      std::make_tuple("n_eval_jac_g_ineq", nlp->out_stats.n_eval_jac_g_ineq),
+      std::make_tuple("n_eval_h", nlp->out_stats.n_eval_h),
+      std::make_tuple("n_iter", nlp->out_stats.n_iter));
 }
 
 // Begin Python Module code section
 
 static struct PyModuleDef moduledef = {
-    .m_base = PyModuleDef_HEAD_INIT,
-    .m_name = "ipyopt",
-    .m_doc = "Python interface to Ipopt",
-    .m_size = -1,
+    PyModuleDef_HEAD_INIT, .m_name = "ipyopt",
+    .m_doc = "Python interface to Ipopt", .m_size = -1,
     .m_methods = (PyMethodDef[]){{"get_ipopt_options", py_get_ipopt_options,
                                   METH_NOARGS, GET_IPOPT_OPTIONS_DOC},
-                                 {nullptr, nullptr, 0, nullptr}},
-    .m_slots = nullptr,
-    .m_traverse = nullptr,
-    .m_clear = nullptr,
-    .m_free = nullptr,
-};
+                                 {nullptr, nullptr, 0, nullptr}}};
 
 PyMethodDef problem_methods[] = {
     {"solve", (PyCFunction)py_solve, METH_VARARGS | METH_KEYWORDS,
@@ -763,61 +727,41 @@ PyMethodDef problem_methods[] = {
     {nullptr, nullptr, 0, nullptr},
 };
 
-PyTypeObject IPyOptProblemType = {
-    .ob_base = PyVarObject_HEAD_INIT(nullptr, 0).tp_name = "ipyopt.Problem",
+static PyTypeObject IPyOptProblemType = {
+    PyVarObject_HEAD_INIT(nullptr, 0) // ---
+        .tp_name = "ipyopt.Problem",
     .tp_basicsize = sizeof(PyNlpApp),
     .tp_itemsize = 0,
     .tp_dealloc = (destructor)py_ipopt_problem_dealloc,
-    .tp_getattr = 0,
-    .tp_setattr = 0,
-    .tp_as_async = 0,
-    .tp_repr = 0,
-    .tp_as_number = 0,
-    .tp_as_sequence = 0,
-    .tp_as_mapping = 0,
-    .tp_hash = 0,
-    .tp_call = 0,
-    .tp_str = 0,
-    .tp_getattro = 0,
-    .tp_setattro = 0,
-    .tp_as_buffer = 0,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
     .tp_doc = PyDoc_STR(IPYOPT_PROBLEM_DOC),
     .tp_traverse = (traverseproc)py_ipopt_problem_traverse,
     .tp_clear = (inquiry)py_ipopt_problem_clear,
-    .tp_richcompare = 0,
-    .tp_weaklistoffset = 0,
-    .tp_iter = 0,
-    .tp_iternext = 0,
     .tp_methods = problem_methods,
-    .tp_members = 0,
     .tp_getset =
         (PyGetSetDef[]){{"stats", py_get_stats, nullptr,
                          "dict[str, int]: Stats about an optimization run",
                          nullptr},
                         {nullptr, nullptr, nullptr, nullptr, nullptr}},
-    .tp_base = 0,
-    .tp_dict = 0,
-    .tp_descr_get = 0,
-    .tp_descr_set = 0,
-    .tp_dictoffset = 0,
-    .tp_init = 0,
-    .tp_alloc = 0,
     .tp_new = py_ipopt_problem_new};
 
 PyMODINIT_FUNC PyInit_ipyopt(void) {
-  PyObject *module;
   // Finish initialization of the problem type
   if (PyType_Ready(&IPyOptProblemType) < 0)
     return nullptr;
 
-  module = PyModule_Create(&moduledef);
+  PyObject *module = PyModule_Create(&moduledef);
 
   if (module == nullptr)
     return nullptr;
 
   Py_INCREF(&IPyOptProblemType);
-  PyModule_AddObject(module, "Problem", (PyObject *)&IPyOptProblemType);
+  if (PyModule_AddObject(module, "Problem", (PyObject *)&IPyOptProblemType) <
+      0) {
+    Py_DECREF(&IPyOptProblemType);
+    Py_DECREF(module);
+    return nullptr;
+  }
 #ifdef VERSION_INFO
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)

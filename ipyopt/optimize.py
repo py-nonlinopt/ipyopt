@@ -56,7 +56,8 @@ T = TypeVar("T")
 class JacEnvelope(Generic[T]):
     """A wrapper for `PyCapsule`_ / `scipy.LowLevelCallable`_ objects, so they can be passed as the ``jac`` argument to `scipy.optimize.minimize`_.
 
-    If the ``jac`` argument is not callable, then `scipy.optimize.minimize`_ will assume that it is a ``bool``. It will be evaluated to a ``bool`` and ``None`` will be passed to the method. To circumwent this, wrap your `PyCapsule`_ / `scipy.LowLevelCallable`_ objects with this wrapper and pass it to `scipy.optimize.minimize`_ as the ``jac`` argument."""
+    If the ``jac`` argument is not callable, then `scipy.optimize.minimize`_ will assume that it is a ``bool``. It will be evaluated to a ``bool`` and ``None`` will be passed to the method. To circumwent this, wrap your `PyCapsule`_ / `scipy.LowLevelCallable`_ objects with this wrapper and pass it to `scipy.optimize.minimize`_ as the ``jac`` argument.
+    """
 
     def __init__(self, inner: T):
         self.inner = inner
