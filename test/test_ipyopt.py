@@ -1,4 +1,5 @@
 """Unittests"""
+
 # pylint: disable=missing-function-docstring
 
 import sys
