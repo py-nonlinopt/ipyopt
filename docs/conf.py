@@ -14,3 +14,4 @@ author = "Gerhard Bräunlich, Nikitas Rontsis"
 extensions = ["sphinx.ext.napoleon", "sphinx_rtd_theme", "sphinx.ext.mathjax"]
 exclude_patterns = []
 html_theme = "sphinx_rtd_theme"
+autodoc_mock_imports = ["ipyopt.ipyopt"]

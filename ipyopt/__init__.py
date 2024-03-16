@@ -1,4 +1,4 @@
-"""Python interface to Ipopt"""
+"""Python interface to Ipopt."""
 
 from .ipyopt import Problem, get_ipopt_options
 

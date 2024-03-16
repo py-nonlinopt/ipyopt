@@ -1,100 +1,89 @@
-from __future__ import annotations
-
 import sys
-from typing import Optional, Tuple, Sequence, Union, Callable, Dict, List, Any, NewType
-import numpy
+from typing import Any, Callable, NewType, Sequence, TypeAlias
+
+import numpy as np
 import scipy
 
 if sys.version_info >= (3, 7):
-    from numpy.typing import NDArray
-
-    np_array = NDArray[numpy.float_]
+    NDArrayF64: TypeAlias = np.typing.NDArray[np.float64]
 else:
-    np_array = numpy.ndarray
+    NDArrayF64: TypeAlias = np.ndarray
 
 PyCapsule = NewType("PyCapsule", object)
 
 class Problem:
-    stats: Dict[str, int]
+    stats: dict[str, int]
 
     def __init__(
         self,
         n: int,
-        x_l: np_array,
-        x_u: np_array,
+        x_l: NDArrayF64,
+        x_u: NDArrayF64,
         m: int,
-        g_l: np_array,
-        g_u: np_array,
-        sparsity_indices_jac_g: Tuple[
-            Union[Sequence[int], np_array], Union[Sequence[int], np_array]
+        g_l: NDArrayF64,
+        g_u: NDArrayF64,
+        sparsity_indices_jac_g: tuple[
+            Sequence[int] | NDArrayF64, Sequence[int] | NDArrayF64
         ],
-        sparsity_indices_h: Tuple[
-            Union[Sequence[int], np_array], Union[Sequence[int], np_array]
+        sparsity_indices_h: tuple[
+            Sequence[int] | NDArrayF64, Sequence[int] | NDArrayF64
         ],
-        eval_f: Union[Callable[[np_array], float], PyCapsule, scipy.LowLevelCallable],
-        eval_grad_f: Union[
-            Callable[[np_array, np_array], Any],
-            PyCapsule,
-            scipy.LowLevelCallable,
-        ],
-        eval_g: Union[
-            Callable[[np_array, np_array], Any],
-            PyCapsule,
-            scipy.LowLevelCallable,
-        ],
-        eval_jac_g: Union[
-            Callable[[np_array, np_array], Any],
-            PyCapsule,
-            scipy.LowLevelCallable,
-        ],
-        eval_h: Optional[
-            Union[
-                Callable[[np_array, np_array, float, np_array], Any],
-                PyCapsule,
-                scipy.LowLevelCallable,
-            ]
-        ] = None,
-        intermediate_callback: Optional[
-            Union[
-                Callable[
-                    [
-                        int,
-                        int,
-                        float,
-                        float,
-                        float,
-                        float,
-                        float,
-                        float,
-                        float,
-                        float,
-                        int,
-                    ],
-                    Any,
+        eval_f: Callable[[NDArrayF64], float] | PyCapsule | scipy.LowLevelCallable,
+        eval_grad_f: (
+            Callable[[NDArrayF64, NDArrayF64], Any] | PyCapsule | scipy.LowLevelCallable
+        ),
+        eval_g: (
+            Callable[[NDArrayF64, NDArrayF64], Any] | PyCapsule | scipy.LowLevelCallable
+        ),
+        eval_jac_g: (
+            Callable[[NDArrayF64, NDArrayF64], Any] | PyCapsule | scipy.LowLevelCallable
+        ),
+        eval_h: (
+            Callable[[NDArrayF64, NDArrayF64, float, NDArrayF64], Any]
+            | PyCapsule
+            | scipy.LowLevelCallable
+            | None
+        ) = None,
+        intermediate_callback: (
+            Callable[
+                [
+                    int,
+                    int,
+                    float,
+                    float,
+                    float,
+                    float,
+                    float,
+                    float,
+                    float,
+                    float,
+                    int,
                 ],
-                PyCapsule,
-                scipy.LowLevelCallable,
+                Any,
             ]
-        ] = None,
+            | PyCapsule
+            | scipy.LowLevelCallable
+            | None
+        ) = None,
         obj_scaling: float = 1.0,
-        x_scaling: Optional[np_array] = None,
-        g_scaling: Optional[np_array] = None,
-        ipopt_options: Optional[dict[str, Union[int, float, str]]] = None,
+        x_scaling: NDArrayF64 | None = None,
+        g_scaling: NDArrayF64 | None = None,
+        ipopt_options: dict[str, int | float | str] | None = None,
     ): ...
     def solve(
         self,
-        x: np_array,
+        x: NDArrayF64,
         *,
-        mult_g: Optional[np_array] = None,
-        mult_x_L: Optional[np_array] = None,
-        mult_x_U: Optional[np_array] = None,
-    ) -> Tuple[np_array, float, int]: ...
-    def set(self, **kwargs: Union[str, float, int]) -> None: ...
+        mult_g: NDArrayF64 | None = None,
+        mult_x_L: NDArrayF64 | None = None,  # noqa: N803
+        mult_x_U: NDArrayF64 | None = None,  # noqa: N803
+    ) -> tuple[NDArrayF64, float, int]: ...
+    def set(self, **kwargs: str | float) -> None: ...
     def set_problem_scaling(
         self,
         obj_scaling: float,
-        x_scaling: Optional[np_array] = None,
-        g_scaling: Optional[np_array] = None,
+        x_scaling: NDArrayF64 | None = None,
+        g_scaling: NDArrayF64 | None = None,
     ) -> None: ...
 
-def get_ipopt_options() -> List[dict[str, Any]]: ...
+def get_ipopt_options() -> list[dict[str, Any]]: ...

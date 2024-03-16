@@ -1,13 +1,14 @@
 #!/bin/env python3
-"""The same model as Ipopt/examples/hs071
+"""The same model as Ipopt/examples/hs071.
 
-This example shows, how to use auto differentiated, auto compiled PyCapsules from sympy expressions.
+This example shows, how to use auto differentiated, auto compiled
+PyCapsules from sympy expressions.
 """
 
-import numpy
+import numpy as np
 
 import ipyopt
-from ipyopt.sym_compile import array_sym, SymNlp
+from ipyopt.sym_compile import SymNlp, array_sym
 
 n = 4
 m = 2
@@ -21,20 +22,20 @@ c_api = SymNlp(f, g).compile()
 
 nlp = ipyopt.Problem(
     n=n,
-    x_l=numpy.ones(n),
-    x_u=numpy.full(n, 5.0),
+    x_l=np.ones(n),
+    x_u=np.full(n, 5.0),
     m=m,
-    g_l=numpy.array([25.0, 40.0]),
-    g_u=numpy.array([2.0e19, 40.0]),
+    g_l=np.array([25.0, 40.0]),
+    g_u=np.array([2.0e19, 40.0]),
     **c_api,
 )
 
-x0 = numpy.array([1.0, 5.0, 5.0, 1.0])
+x0 = np.array([1.0, 5.0, 5.0, 1.0])
 
 print(f"Going to call solve with x0 = {x0}")
-zl = numpy.zeros(n)
-zu = numpy.zeros(n)
-constraint_multipliers = numpy.zeros(m)
+zl = np.zeros(n)
+zu = np.zeros(n)
+constraint_multipliers = np.zeros(m)
 _x, obj, status = nlp.solve(x0, mult_g=constraint_multipliers, mult_x_L=zl, mult_x_U=zu)
 
 

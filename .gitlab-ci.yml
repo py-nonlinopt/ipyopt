@@ -59,26 +59,14 @@ build-wheel:
     - mv /tmp/ipyopt/ipyopt.libs .
     - mv /tmp/ipyopt/ipyopt/ipyopt*.so ipyopt/
 
-pylint:
+lint:
   stage: test
   image: python:slim
-  extends: .install-wheel
   script:
-    - apt-get update && apt-get install -y g++
-    - pip install numpy scipy cython sympy
-    - python setup_test.py build_ext --inplace
-    - cythonize -3 -i examples/hs071_capsules.pyx
-    - pip install pylint
-    - pylint --rcfile=pyproject.toml ipyopt/ test/
-    - pylint --rcfile=pyproject.toml --disable=duplicate-code --extension-pkg-whitelist=hs071_capsules examples/
-
-black:
-  stage: test
-  image: python:slim
-  before_script:
-    - pip install black
-  script:
-    - black --check .
+    - pip install ruff
+    - ruff check ipyopt/ test/
+    - ruff check --ignore T201 examples/
+    - ruff format --check
 
 mypy:
   stage: test
@@ -106,7 +94,6 @@ test:
     # Install built wheels:
     - >
       for py in /opt/python/cp3* ; do \
-        [ "$py" == /opt/python/cp311-cp311 ] && continue ; \
         "$py"/bin/pip install numpy scipy \
         && "$py"/bin/pip install --only-binary ipyopt --no-index --find-links dist ipyopt ; \
       done
@@ -115,7 +102,6 @@ test:
   script:
     - >
       for py in /opt/python/cp3* ; do \
-        [ "$py" == /opt/python/cp311-cp311 ] && continue ; \
         # Test without capsules:
         "$py"/bin/python -m unittest || exit 1 ; \
         "$py"/bin/python setup_test.py build_ext --inplace ; \

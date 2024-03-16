@@ -18,8 +18,29 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.pylint.'MESSAGES CONTROL']
-disable = "line-too-long,invalid-name,too-few-public-methods"
-extension-pkg-allow-list = "test.c_capsules,ipyopt.ipyopt"
-output-format = "text"
-reports = "no"
+[tool.ruff.lint]
+
+select = ["ALL"]
+ignore = [
+  "ANN", # flake8-annotations (mypy's job)
+  "CPY", # flake8-copyright
+  "DTZ", # flake8-datetimez
+  "PTH", # flake8-use-pathlib
+  "FIX", # flake8-fixme (flake8-todos is enough)
+  "D105", # undocumented-magic-method
+  "D107", # undocumented-public-init
+  "COM812", # missing-trailing-comma (conflicts with formatter)
+  "ISC001", # single-line-implicit-string-concatenation (conflicts with formatter)
+  "D401", # non-imperative-mood
+  "B905", # zip-without-explicit-strict
+  "UP006", "UP007", # type annotation
+  "UP036", # outdated-version-block
+  "PLR0913", # Too many arguments
+  "E741", # Ambiguous name
+  "PT027", # pytest-unittest-raises-assertion
+  "PT009", # pytest-unittest-assertion
+  "FA100", # future-rewritable-type-annotation
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

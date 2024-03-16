@@ -40,4 +40,4 @@ Module optimize
     :noindex:
 
 .. _`PyCapsule`: https://docs.python.org/3/c-api/capsule.html
-.. _`scipy.LowLevelCallable`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.LowLevelCallable.html?highlight=lowlevelcallable#scipy.LowLevelCallable
+.. _`scipy.LowLevelCallable`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.LowLevelCallable.html

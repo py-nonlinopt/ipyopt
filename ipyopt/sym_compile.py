@@ -1,21 +1,22 @@
-"""Automatic differentiation and code generation"""
+"""Automatic differentiation and code generation."""
 
+import importlib
 import os
 import sys
-import importlib
-from typing import Any, Union, List, Sequence, Tuple, Dict, Callable
+from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 
-from setuptools import Extension, Distribution
-from sympy import Symbol, ccode, Expr
+from setuptools import Distribution, Extension
+from sympy import Expr, S, Symbol, ccode
 from sympy.codegen.ast import Assignment, CodeBlock
-from sympy import S
 
 
 class SymNlp:  # pylint: disable=too-many-instance-attributes
-    """Symbolic definition of a NLP
+    """Symbolic definition of a NLP.
 
-    Only, sympy expressions for f, g needed, derivatives will be calculated automatically.
-    The method :meth:`compile` will compile all expressions into PyCapsules and return them in a dict.
+    Only, sympy expressions for f, g needed, derivatives will be
+    calculated automatically.
+    The method :meth:`compile` will compile all expressions into
+    PyCapsules and return them in a dict.
     """
 
     n: int
@@ -39,13 +40,13 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
         l = array_sym("lambda", m)
         s = Symbol("obj_factor")
 
-        L = s * f + sum(l_i * g_i for l_i, g_i in zip(l, g))
+        lgr = s * f + sum(l_i * g_i for l_i, g_i in zip(l, g))
         """Lagrangian"""
 
         jac_g = [[g_i.diff(x_i) for x_i in x] for g_i in g]
         jac_g_sparse, jac_g_sparsity_indices = sparsify(jac_g)
 
-        h = [[dL.diff(x_j) for x_j in x] for dL in [L.diff(x_i) for x_i in x]]
+        h = [[dL.diff(x_j) for x_j in x] for dL in [lgr.diff(x_i) for x_i in x]]
         h_sparse, h_sparsity_indices = sparsify(ll_triangular(h))
         self.grad_f = [f.diff(x_i) for x_i in x]
         self.jac_g = jac_g_sparse
@@ -56,7 +57,8 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
     def compile(self) -> Dict[str, Any]:
         """Compile all expressions into PyCapsules.
 
-        Returns capsules in a dict with keys compatible with :class:`ipyopt.Problem`."""
+        Returns capsules in a dict with keys compatible with :class:`ipyopt.Problem`.
+        """
         code = generate_c_code(self)
         c_api = compile_c(code)
         c_api.update(
@@ -74,9 +76,13 @@ def array_sym(name: str, dim: int) -> List[Symbol]:
 
 
 def c_function_body(expr: Sequence[Expr]) -> CodeBlock:
-    """Prepares a sympy CodeBlock consisting of scalar assignment statements to store the expression in some target variable. This will be used to generate a C function body.
+    """Generates a sympy CodeBlock of scalar assignment statements.
 
-    :meta private:"""
+    To store the expression in some target variable.
+    This will be used to generate a C function body.
+
+    :meta private:
+    """
     dim = len(expr)
     out = array_sym("out", dim)
     return CodeBlock(*(Assignment(out_i, expr_i) for out_i, expr_i in zip(out, expr)))
@@ -85,12 +91,14 @@ def c_function_body(expr: Sequence[Expr]) -> CodeBlock:
 def sparsify(
     expr: Sequence[Sequence[Expr]],
 ) -> Tuple[Sequence[Expr], Sequence[Tuple[int, int]]]:
-    """Flattens a matrix of sympy expressions, removes zeros
+    """Flattens a matrix of sympy expressions, removes zeros.
 
     Returns:
-        The flattened, sparsified list of expression and the index pairs of non zero entries within the matrix.
+        The flattened, sparsified list of expression and the index pairs
+        of non zero entries within the matrix.
 
-    :meta private:"""
+    :meta private:
+    """
     indices, values = zip(
         *(
             ((i, j), val)
@@ -103,9 +111,10 @@ def sparsify(
 
 
 def ll_triangular(h: Sequence[Sequence[Expr]]) -> Sequence[Sequence[Expr]]:
-    """Replaces the uper right triangular part (excluding the diagonal) of the input with zeros
+    """Fill the uper right triangular part (excluding the diagonal) of the input with 0.
 
-    :meta private:"""
+    :meta private:
+    """
     return [
         [h_ij if j <= i else S.Zero for j, h_ij in enumerate(h_i)]
         for i, h_i in enumerate(h)
@@ -113,20 +122,21 @@ def ll_triangular(h: Sequence[Sequence[Expr]]) -> Sequence[Sequence[Expr]]:
 
 
 def transpose(
-    index_pairs: Sequence[Tuple[int, int]]
+    index_pairs: Sequence[Tuple[int, int]],
 ) -> Tuple[Sequence[int], Sequence[int]]:
-    """Turns a sequence of index pairs (i,j) into
-    a sequence of i indices and a sequence of j indeces.
+    """Turns a sequence of index pairs (i,j) into a pair of sequences (i and j indices).
 
-    :meta private:"""
+    :meta private:
+    """
     i, j = zip(*index_pairs)
     return (i, j)
 
 
 def generate_c_code(nlp: SymNlp) -> str:
-    """Writes C code for all symbolic expressions of a :class:`SymNlp`
+    """Writes C code for all symbolic expressions of a :class:`SymNlp`.
 
-    :meta private:"""
+    :meta private:
+    """
     grad_f_codeblock = c_function_body(nlp.grad_f)
     g_codeblock = c_function_body(nlp.g)
     jac_g_codeblock = c_function_body(nlp.jac_g)
@@ -188,9 +198,11 @@ PyMODINIT_FUNC PyInit_c_api(void) {{
 
   PyObject *py_c_api = PyDict_New();
   PyDict_SetItemString(py_c_api, "eval_f", PyCapsule_New((void *)f, "f", NULL));
-  PyDict_SetItemString(py_c_api, "eval_grad_f", PyCapsule_New((void *)grad_f, "grad_f", NULL));
+  PyDict_SetItemString(py_c_api, "eval_grad_f",
+    PyCapsule_New((void *)grad_f, "grad_f", NULL));
   PyDict_SetItemString(py_c_api, "eval_g", PyCapsule_New((void *)g, "g", NULL));
-  PyDict_SetItemString(py_c_api, "eval_jac_g", PyCapsule_New((void *)jac_g, "jac_g", NULL));
+  PyDict_SetItemString(py_c_api, "eval_jac_g",
+    PyCapsule_New((void *)jac_g, "jac_g", NULL));
   PyDict_SetItemString(py_c_api, "eval_h", PyCapsule_New((void *)h, "h", NULL));
   if (PyModule_AddObject(module, "__capi__", py_c_api) < 0 ||
       PyModule_AddIntConstant(module, "n", N) < 0 ||
@@ -206,12 +218,13 @@ PyMODINIT_FUNC PyInit_c_api(void) {{
 
 
 def compile_c(code: str) -> Dict[str, Any]:
-    """Compiles C code into a C extension, loads the extension and returns the included dict of compiled PyCapsules.
+    """Compile/load an extension from C code, return the contained dict of PyCapsules.
 
     This assumes that the code defines a module member
     ``__capi__``.
 
-    :meta private:"""
+    :meta private:
+    """
     build_dir = "build"
     c_file_path = os.path.join(build_dir, "src", "module.c")
     prepare_c_src(c_file_path, code)
@@ -226,14 +239,19 @@ def compile_c(code: str) -> Dict[str, Any]:
     dist.parse_command_line()
     dist.run_commands()
     sys.path.append(os.getcwd())
-    return importlib.import_module("c_api").__capi__  # type: ignore
+    capi: Dict[str, Any] = importlib.import_module("c_api").__capi__
+    return capi
 
 
 def prepare_c_src(path: str, code: str) -> None:
-    """Writes code into a file, if code differs from file contents, or if file does not exist.
+    """Cache code in a file.
+
+    The file will be updated if the code differs from the file contents,
+    or if file does not exist.
     Creates parent directories if they dont exist.
 
-    :meta private:"""
+    :meta private:
+    """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         with open(path, encoding="utf-8") as f:

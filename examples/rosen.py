@@ -1,90 +1,81 @@
 #!/bin/env python3
 
-"""Example for optimizing scipy.optimize.rosen"""
+"""Example for optimizing scipy.optimize.rosen."""
 
-from typing import Tuple
-import numpy
+import numpy as np
 import scipy.optimize
+
 import ipyopt
 
 
-def eval_f(X):
+def eval_f(x):
     """Directly evaluate the objective function f."""
-    return scipy.optimize.rosen(X)
+    return scipy.optimize.rosen(x)
 
 
-def eval_grad_f(X, out):
+def eval_grad_f(x, out):
     """Evaluate the gradient of the objective function f."""
-    out[()] = scipy.optimize.rosen_der(X)
+    out[()] = scipy.optimize.rosen_der(x)
     return out
 
 
-def eval_g(_X, _out):
+def eval_g(_x, _out):
     """Evaluate the constraint functions.
+
     Constraints are defined by:
     g_L <= g(x) <= g_U
     """
     return
 
 
-def eval_jac_g(_X, _out):
-    """Evaluate the sparse Jacobian of constraint functions g.
-
-    @param X: parameter values
-    @param out: The numpy array to write the result values into
-    """
+def eval_jac_g(_x, _out):
+    """Evaluate the sparse Jacobian of constraint functions g."""
     return
 
 
 # define the nonzero slots in the jacobian
 # there are no nonzeros in the constraint jacobian
-eval_jac_g_sparsity_indices: Tuple[numpy.ndarray, numpy.ndarray] = (
-    numpy.array([]),
-    numpy.array([]),
-)
+eval_jac_g_sparsity_indices = (np.array([]), np.array([]))
 
 
-def eval_h(X, _lagrange, obj_factor, out):
-    """Evaluate the sparse hessian of the Lagrangian
+def eval_h(x, _lagrange, obj_factor, out):
+    """Evaluate the sparse hessian of the Lagrangian.
+
     L = obj_factor * f + <lagrange, g>,
     where <.,.> denotes the inner product.
-
-    @param X: parameter values
-    @param lagrange: something about the constraints
-    @param obj_factor: no clue what this is
-    @param out: The numpy array to write the result values into
     """
-    H = scipy.optimize.rosen_hess(X)
-    out[()] = H[eval_h_sparsity_indices] * obj_factor
+    hess = scipy.optimize.rosen_hess(x)
+    out[()] = hess[eval_h_sparsity_indices] * obj_factor
     return out
 
 
 # there are maximum nonzeros (nvar*(nvar+1))/2 in the lagrangian hessian
 eval_h_sparsity_indices = (
-    numpy.array([0, 1, 1], dtype=int),
-    numpy.array([0, 0, 1], dtype=int),
+    np.array([0, 1, 1], dtype=int),
+    np.array([0, 0, 1], dtype=int),
 )
 
 
-def main():  # pylint: disable=missing-function-docstring
+def main():
+    """Entry point."""
     # define the parameters and their box constraints
     nvar = 2
-    x_L = numpy.array([-3, -3], dtype=float)
-    x_U = numpy.array([3, 3], dtype=float)
+    x_l = np.array([-3, -3], dtype=float)
+    x_u = np.array([3, 3], dtype=float)
 
     # define the inequality constraints
     ncon = 0
-    g_L = numpy.array([], dtype=float)
-    g_U = numpy.array([], dtype=float)
+    g_l = np.array([], dtype=float)
+    g_u = np.array([], dtype=float)
 
     # create the nonlinear programming model
     nlp = ipyopt.Problem(
         nvar,
-        x_L,
-        x_U,
+        x_l,
+        x_u,
         ncon,
-        g_L,
-        g_U,
+        g_l,
+        g_u,
         eval_jac_g_sparsity_indices,
         eval_h_sparsity_indices,
         eval_f,
@@ -95,7 +86,7 @@ def main():  # pylint: disable=missing-function-docstring
     )
 
     # define the initial guess
-    x0 = numpy.array([-1.2, 1], dtype=float)
+    x0 = np.array([-1.2, 1], dtype=float)
 
     # compute the results using ipopt
     results = nlp.solve(x0)
