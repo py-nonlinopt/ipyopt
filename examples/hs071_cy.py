@@ -7,14 +7,10 @@ The definition of the capsules are in hs071_capsules.pyx and are compiled via py
 """
 
 from numpy import ones, float_, array, zeros
-import pyximport
 
+import ipyopt
 
-pyximport.install(language_level=3)
-from hs071_capsules import (  # pylint: disable=wrong-import-position
-    __pyx_capi__ as capsules,
-)
-import ipyopt  # pylint: disable=wrong-import-position
+from hs071_capsules import __pyx_capi__ as capsules
 
 nvar = 4
 x_L = ones((nvar), dtype=float_) * 1.0

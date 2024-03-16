@@ -90,10 +90,15 @@ mypy:
 
 test-examples:
   stage: test
+  variables:
+    py: /opt/python/cp312-cp312/bin
   before_script:
-    - /opt/python/cp38-cp38/bin/pip install scipy cython sympy .
+    - >
+      "$py"/pip install scipy cython sympy .
+    - >
+      "$py"/cythonize -i examples/hs071_capsules.pyx
   script:
-    - for script in examples/*.py ; do /opt/python/cp38-cp38/bin/python "$script" || exit 1 ; done
+    - for script in examples/*.py ; do "$py"/python "$script" || exit 1 ; done
 
 test:
   stage: test
