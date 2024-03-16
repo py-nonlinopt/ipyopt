@@ -3,9 +3,8 @@
 [![pipeline status](https://gitlab.com/ipyopt-devs/ipyopt/badges/main/pipeline.svg)](https://gitlab.com/ipyopt-devs/ipyopt/-/commits/main)
 [![python version](https://img.shields.io/pypi/pyversions/ipyopt.svg?logo=python&logoColor=white)](https://pypi.org/project/ipyopt)
 [![latest version](https://img.shields.io/pypi/v/ipyopt.svg)](https://pypi.org/project/ipyopt)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
-[![Checked with pylint](https://img.shields.io/badge/pylint-checked-blue)](https://github.com/PyCQA/pylint)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3249818.svg)](https://doi.org/10.5281/zenodo.3249818)
 
 *ipyopt* is a Python 🐍 C++ extension that allows you to use
