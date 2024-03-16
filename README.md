@@ -1,3 +1,5 @@
+<div align="center">
+
 [![pipeline status](https://gitlab.com/ipyopt-devs/ipyopt/badges/main/pipeline.svg)](https://gitlab.com/ipyopt-devs/ipyopt/-/commits/main)
 [![python version](https://img.shields.io/pypi/pyversions/ipyopt.svg?logo=python&logoColor=white)](https://pypi.org/project/ipyopt)
 [![latest version](https://img.shields.io/pypi/v/ipyopt.svg)](https://pypi.org/project/ipyopt)
@@ -6,10 +8,16 @@
 [![Checked with pylint](https://img.shields.io/badge/pylint-checked-blue)](https://github.com/PyCQA/pylint)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3249818.svg)](https://doi.org/10.5281/zenodo.3249818)
 
-# ipyopt
-
-`ipyopt` is a Python 🐍 C++ extension that allows you to use
+*ipyopt* is a Python 🐍 C++ extension that allows you to use
 [Ipopt](http://www.coin-or.org/Ipopt/) in Python.
+
+[Install](#installation) •
+[Usage](#usage) •
+[Docs](https://ipyopt-devs.gitlab.io/ipyopt)
+
+</div>
+
+# ipyopt
 
 Ipopt solves general nonlinear programming problems of the form
 
