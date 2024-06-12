@@ -100,12 +100,10 @@ def generic_problem(
 
 def py_module(_n: int, wrap_eval_h: Callable[[Any], Any] = lambda f: f) -> Any:
     """Prepare a fake python module."""
-    _e_x = e_x(_n)
 
     class _PyModule:
         """Set of pure python callbacks."""
 
-        e_x = _e_x
         n = _n
 
         @staticmethod
@@ -114,18 +112,20 @@ def py_module(_n: int, wrap_eval_h: Callable[[Any], Any] = lambda f: f) -> Any:
             return out
 
         @staticmethod
-        def grad_f(x: NDArrayF64, out: NDArrayF64) -> None:
+        def grad_f(x: NDArrayF64, out: NDArrayF64) -> NDArrayF64:
             out[()] = 2.0 * x
+            return out
 
         @staticmethod
         def g(x: NDArrayF64, out: NDArrayF64) -> NDArrayF64:
             """Constraint function: squared distance to (1, 0, ..., 0)."""
-            out[0] = np.sum((x - _e_x) ** 2)
+            out[0] = (x[0] - 1.0) ** 2 + np.sum(x[1:] ** 2)
             return out
 
         @staticmethod
         def jac_g(x: NDArrayF64, out: NDArrayF64) -> NDArrayF64:
-            out[()] = 2.0 * (x - _e_x)
+            out[()] = 2.0 * x
+            out[0] -= 2.0
             return out
 
         @staticmethod
@@ -360,7 +360,8 @@ class TestIPyOpt(unittest.TestCase):
     def test_problem_scaling(self) -> None:
         """Test optimizing a problem with scaling."""
         p = generic_problem(self.function_set)
-        x0 = np.full((self.function_set.n,), 0.1)
+        n = self.function_set.n
+        x0 = np.full((n,), 0.1)
         p.set(nlp_scaling_method="user-scaling")
         # Maximize instead of minimize:
         p.set_problem_scaling(obj_scaling=-1.0)
@@ -368,19 +369,18 @@ class TestIPyOpt(unittest.TestCase):
         # -> Solution x should be the point within the circle
         # around e_x with radius 2 with the largest distance
         # to the origin, i.e. 3*e_x = (3,0,...,0)
-        _e_x = e_x(self.function_set.n)
-        np.testing.assert_array_almost_equal(x, 3.0 * _e_x)
+        np.testing.assert_array_almost_equal(x, 3.0 * e_x(n))
         np.testing.assert_array_almost_equal(obj, 9.0)
         np.testing.assert_array_equal(status, 0)
 
     def test_problem_scaling_constructor(self) -> None:
         """Same again, but set scaling during problem creation."""
         p = generic_problem(self.function_set, obj_scaling=-1.0)
-        x0 = np.full((self.function_set.n,), 0.1)
+        n = self.function_set.n
+        x0 = np.full((n,), 0.1)
         p.set(nlp_scaling_method="user-scaling")
         x, obj, status = p.solve(x0)
-        _e_x = e_x(self.function_set.n)
-        np.testing.assert_array_almost_equal(x, 3.0 * _e_x)
+        np.testing.assert_array_almost_equal(x, 3.0 * e_x(n))
         np.testing.assert_array_almost_equal(obj, 9.0)
         np.testing.assert_array_equal(status, 0)
 

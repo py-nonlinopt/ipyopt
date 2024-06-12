@@ -22,17 +22,23 @@ Lets start with a minimal example:
 That is, :math:`\boldsymbol{x}_l = (-10, -10, -10)`,
 :math:`\boldsymbol{x}_u = (10, 10, 10)`.
 
+**Step 0:** Import ipyopt and numpy
+
+.. code::
+
+   import numpy as np
+   import ipyopt
+
+
 **Step 1:** Define the problem in Python
 
 We first define the corresponding Python function for ``f`` and its derivative:
 
-.. literalinclude:: ../test/test_ipyopt.py
-    :dedent: 8
+.. literalinclude:: ../examples/getting_started.py
     :start-at: def f(
     :end-at: return
 
-.. literalinclude:: ../test/test_ipyopt.py
-    :dedent: 8
+.. literalinclude:: ../examples/getting_started.py
     :start-at: def grad_f(
     :end-at: return
 
@@ -40,17 +46,17 @@ We first define the corresponding Python function for ``f`` and its derivative:
 
    For performance reasons, you have to write the value of
    ``grad_f`` into the ``out`` argument of the function (this way we can
-   avoid unnecessary memory allocation). 
+   avoid unnecessary memory allocation). The ``return`` statement is
+   actually only required for ``f`` and will be ignored by ``ipyopt``
+   for ``g`` and the derivatives of ``f``.
 
 Next, we define ``g`` and its derivative:
 
-.. literalinclude:: ../test/test_ipyopt.py
-    :dedent: 8
+.. literalinclude:: ../examples/getting_started.py
     :start-at: def g(
     :end-at: return
 
-.. literalinclude:: ../test/test_ipyopt.py
-    :dedent: 8
+.. literalinclude:: ../examples/getting_started.py
     :start-at: def jac_g(
     :end-at: return
 
@@ -99,9 +105,8 @@ The corresponding sparsity info argument is
 ``(numpy.array([0, 1, 2]), numpy.array([0, 1, 2]))`` and this is how
 to compute the non zero entries:
 
-.. literalinclude:: ../test/test_ipyopt.py
-    :dedent: 8
-    :start-at: def h(
+.. literalinclude:: ../examples/getting_started.py
+    :start-at: def hess_g(
     :end-at: return
 
 Here, ``lagrange`` corresponds to :math:`\lambda` and ``obj_factor`` to
@@ -111,33 +116,22 @@ for us, at the price of some performance loss.
 
 Now, we are ready to define the Python problem:
 
-.. code::
-
-    import ipyopt
-    nlp = ipyopt.Problem(
-        n=2,
-        x_l=numpy.array([-10.0, -10.0, -10.0]),
-        x_u=numpy.array([10.0, 10.0, 10.]),
-        m=1,
-        g_l=numpy.array([0.0]),
-        g_u=numpy.array([4.0]),
-        sparsity_indices_jac_g=(numpy.array([0, 0, 0]), numpy.array([0, 1, 2])),
-        sparsity_indices_h=(numpy.array([0, 1, 2]), numpy.array([0, 1, 2])),
-        f,
-        grad_f,
-        g,
-        jac_g,
-        h
-    )
+.. literalinclude:: ../examples/getting_started.py
+    :start-at: nlp = ipyopt.Problem(
+    :end-before: x, obj, status =
 
 **Step 2:** Solve the problem
 
 We will use :math:`x_0 = (0.1, 0.1, 0.1)` as initial guess.
 
-.. code::
-
-    x, obj, status = nlp.solve(x0=numpy.array([0.1, 0.1, 0.1]))
+.. literalinclude:: ../examples/getting_started.py
+    :start-at: x, obj, status =
+    :end-at: x, obj, status =
 
 As a result, we should obtain the solution ``x = (0.,0.,0.)``, ``obj =
 f(x) = 0.`` and ``status = 0`` (meaning, that Ipopt found the optimal
 solution within tolerance).
+
+The full example code is available at `examples/getting_started.py <https://gitlab.com/ipyopt-devs/ipyopt/-/tree/main/examples/getting_started.py>`_ 
+
+For more examples, have a look at the other `examples <https://gitlab.com/ipyopt-devs/ipyopt/-/tree/main/examples>`_.

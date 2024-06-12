@@ -72,7 +72,7 @@ class Problem:
     ): ...
     def solve(
         self,
-        x: NDArrayF64,
+        x0: NDArrayF64,
         *,
         mult_g: NDArrayF64 | None = None,
         mult_x_L: NDArrayF64 | None = None,  # noqa: N803
