@@ -1,14 +1,8 @@
 ---
 image: "${CI_REGISTRY_IMAGE}/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG"
 
-stages:
-  - build-image
-  - build
-  - test
-  - deploy
-
 build-image:
-  stage: build-image
+  stage: .pre
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
@@ -23,6 +17,7 @@ build-image:
 build-sdist:
   image: python:slim
   stage: build
+  needs: []
   script:
     - >
       [ -n "$CI_COMMIT_TAG" ] && sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
@@ -62,6 +57,7 @@ build-wheel:
 lint:
   stage: test
   image: python:slim
+  needs: []
   script:
     - pip install ruff
     - ruff check ipyopt/ test/
@@ -71,6 +67,7 @@ lint:
 mypy:
   stage: test
   image: python:slim
+  needs: []
   before_script:
     - pip install mypy numpy
   script:
