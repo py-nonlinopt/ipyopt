@@ -33,8 +33,10 @@ build-wheel:
   script:
     - >
       [ -n "$CI_COMMIT_TAG" ] && sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
+    # Skip python 13 for now
     - >
       for py in /opt/python/cp3* ; do \
+        case "$py" in *"cp313"* ) continue ;; esac ; \
         "$py"/bin/pip wheel . -w dist ; \
       done
     - >
@@ -91,6 +93,7 @@ test:
     # Install built wheels:
     - >
       for py in /opt/python/cp3* ; do \
+        case "$py" in *"cp313"* ) continue ;; esac ; \
         "$py"/bin/pip install numpy scipy \
         && "$py"/bin/pip install --only-binary ipyopt --no-index --find-links dist ipyopt ; \
       done
@@ -99,6 +102,7 @@ test:
   script:
     - >
       for py in /opt/python/cp3* ; do \
+        case "$py" in *"cp313"* ) continue ;; esac ; \
         # Test without capsules:
         "$py"/bin/python -m unittest || exit 1 ; \
         "$py"/bin/python setup_test.py build_ext --inplace ; \
