@@ -710,12 +710,18 @@ PyObject *py_get_stats(PyObject *self, void *) {
 
 // Begin Python Module code section
 
+static PyMethodDef module_methods[] = {{"get_ipopt_options",
+                                        py_get_ipopt_options, METH_NOARGS,
+                                        GET_IPOPT_OPTIONS_DOC},
+                                       {nullptr, nullptr, 0, nullptr}};
+
 static struct PyModuleDef moduledef = {
-    PyModuleDef_HEAD_INIT, .m_name = "ipyopt",
-    .m_doc = "Python interface to Ipopt", .m_size = -1,
-    .m_methods = (PyMethodDef[]){{"get_ipopt_options", py_get_ipopt_options,
-                                  METH_NOARGS, GET_IPOPT_OPTIONS_DOC},
-                                 {nullptr, nullptr, 0, nullptr}}};
+    PyModuleDef_HEAD_INIT,
+    "ipyopt",                    // m_name
+    "Python interface to Ipopt", // m_doc
+    -1,                          // m_size
+    module_methods               // m_methods
+};
 
 PyMethodDef problem_methods[] = {
     {"solve", (PyCFunction)py_solve, METH_VARARGS | METH_KEYWORDS,
@@ -727,25 +733,31 @@ PyMethodDef problem_methods[] = {
     {nullptr, nullptr, 0, nullptr},
 };
 
-static PyTypeObject IPyOptProblemType = {
-    PyVarObject_HEAD_INIT(nullptr, 0) // ---
-        .tp_name = "ipyopt.Problem",
-    .tp_basicsize = sizeof(PyNlpApp),
-    .tp_itemsize = 0,
-    .tp_dealloc = (destructor)py_ipopt_problem_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
-    .tp_doc = PyDoc_STR(IPYOPT_PROBLEM_DOC),
-    .tp_traverse = (traverseproc)py_ipopt_problem_traverse,
-    .tp_clear = (inquiry)py_ipopt_problem_clear,
-    .tp_methods = problem_methods,
-    .tp_getset =
-        (PyGetSetDef[]){{"stats", py_get_stats, nullptr,
-                         "dict[str, int]: Stats about an optimization run",
-                         nullptr},
-                        {nullptr, nullptr, nullptr, nullptr, nullptr}},
-    .tp_new = py_ipopt_problem_new};
+static PyGetSetDef object_getset[] = {
+    {"stats", py_get_stats, nullptr,
+     "dict[str, int]: Stats about an optimization run", nullptr},
+    {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+// While this could be done with designated initializers, we use a MSVC
+// compatible way to initialize the type object.
+static PyTypeObject IPyOptProblemType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+void init_IPyOptProblemType() {
+  IPyOptProblemType.tp_name = "ipyopt.Problem";
+  IPyOptProblemType.tp_basicsize = sizeof(PyNlpApp);
+  IPyOptProblemType.tp_dealloc = (destructor)py_ipopt_problem_dealloc;
+  IPyOptProblemType.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC;
+  IPyOptProblemType.tp_doc = IPYOPT_PROBLEM_DOC;
+  IPyOptProblemType.tp_traverse = (traverseproc)py_ipopt_problem_traverse;
+  IPyOptProblemType.tp_clear = (inquiry)py_ipopt_problem_clear;
+  IPyOptProblemType.tp_methods = problem_methods;
+  IPyOptProblemType.tp_getset = object_getset;
+  IPyOptProblemType.tp_new = py_ipopt_problem_new;
+};
 
 PyMODINIT_FUNC PyInit_ipyopt(void) {
+
+  init_IPyOptProblemType();
+
   // Finish initialization of the problem type
   if (PyType_Ready(&IPyOptProblemType) < 0)
     return nullptr;
