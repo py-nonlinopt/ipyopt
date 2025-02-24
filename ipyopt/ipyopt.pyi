@@ -6,8 +6,10 @@ import scipy
 
 if sys.version_info >= (3, 7):
     NDArrayF64: TypeAlias = np.typing.NDArray[np.float64]
+    NDArrayI64: TypeAlias = np.typing.NDArray[np.int64]
 else:
     NDArrayF64: TypeAlias = np.ndarray
+    NDArrayI64: TypeAlias = np.ndarray
 
 PyCapsule = NewType("PyCapsule", object)
 
@@ -23,10 +25,10 @@ class Problem:
         g_l: NDArrayF64,
         g_u: NDArrayF64,
         sparsity_indices_jac_g: tuple[
-            Sequence[int] | NDArrayF64, Sequence[int] | NDArrayF64
+            Sequence[int] | NDArrayI64, Sequence[int] | NDArrayI64
         ],
         sparsity_indices_h: tuple[
-            Sequence[int] | NDArrayF64, Sequence[int] | NDArrayF64
+            Sequence[int] | NDArrayI64, Sequence[int] | NDArrayI64
         ],
         eval_f: Callable[[NDArrayF64], float] | PyCapsule | scipy.LowLevelCallable,
         eval_grad_f: (

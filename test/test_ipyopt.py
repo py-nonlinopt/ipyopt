@@ -31,9 +31,9 @@ except ImportError:
 
 if TYPE_CHECKING:
     # This is only processed by mypy
-    from ipyopt.ipyopt import NDArrayF64
+    from ipyopt.ipyopt import NDArrayF64, NDArrayI64
 else:
-    NDArrayF64 = np.ndarray
+    NDArrayI64 = NDArrayF64 = np.ndarray
 
 
 def e_x(n: int) -> NDArrayF64:
@@ -43,17 +43,17 @@ def e_x(n: int) -> NDArrayF64:
     return out
 
 
-def sparsity_g(n: int) -> Tuple[NDArrayF64, NDArrayF64]:
+def sparsity_g(n: int) -> Tuple[NDArrayI64, NDArrayI64]:
     """Sparsity indices for the g callback."""
     return (
-        np.zeros(n, dtype=int),
-        np.arange(n, dtype=int),
+        np.zeros(n, dtype=np.int64),
+        np.arange(n, dtype=np.int64),
     )
 
 
-def sparsity_h(n: int) -> Tuple[NDArrayF64, NDArrayF64]:
+def sparsity_h(n: int) -> Tuple[NDArrayI64, NDArrayI64]:
     """Sparsity indices for the h callback."""
-    return (np.arange(n, dtype=int), np.arange(n, dtype=int))
+    return (np.arange(n, dtype=np.int64), np.arange(n, dtype=np.int64))
 
 
 def x_l(n: int) -> NDArrayF64:

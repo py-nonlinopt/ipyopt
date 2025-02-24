@@ -24,9 +24,9 @@ from .ipyopt import Problem, get_ipopt_options
 
 if TYPE_CHECKING:
     # This is only processed by mypy
-    from .ipyopt import NDArrayF64
+    from .ipyopt import NDArrayF64, NDArrayI64
 else:
-    NDArrayF64 = np.ndarray
+    NDArrayI64 = NDArrayF64 = np.ndarray
 
 
 class Constraint(NamedTuple):
@@ -53,7 +53,7 @@ class Constraint(NamedTuple):
     ub: NDArrayF64
     """Upper bounds"""
     jac_sparsity_indices: Optional[
-        Tuple[Union[Sequence[int], NDArrayF64], Union[Sequence[int], NDArrayF64]]
+        Tuple[Union[Sequence[int], NDArrayI64], Union[Sequence[int], NDArrayI64]]
     ] = None
     """Sparsity structure of ``jac``.
 
@@ -135,7 +135,7 @@ def ipopt(
     x_scaling: Optional[NDArrayF64] = None,
     constraint_scaling: Optional[NDArrayF64] = None,
     hess_sparsity_indices: Optional[
-        Tuple[Union[Sequence[int], NDArrayF64], Union[Sequence[int], NDArrayF64]]
+        Tuple[Union[Sequence[int], NDArrayI64], Union[Sequence[int], NDArrayI64]]
     ] = None,
     **kwargs: Any,
 ) -> OptimizeResult:
