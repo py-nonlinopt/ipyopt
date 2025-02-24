@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import os
+import sys
 from pathlib import Path
 import warnings
 import subprocess
@@ -11,13 +12,15 @@ from setuptools import setup, Extension
 # 0.0.0-dev.* version identifiers for development only
 __version__ = "0.0.0.dev" + datetime.now().strftime("%Y%m%d")
 
-
 def main():
+    compiler_flags = get_compiler_flags()
+    extra_compile_args = ["/std:c++17" if sys.platform == "win32" else "-std=c++17"]
+
     setup(
         name="ipyopt",
         version=__version__,
         description="Python interface to Ipopt",
-        long_description=(Path(__file__).parent / "README.md").read_text(),
+        long_description=(Path(__file__).parent / "README.md").read_text(encoding="utf8"),
         long_description_content_type="text/markdown",
         author="Gerhard Bräunlich, Nikitas Rontsis",
         author_email="g.braeunlich@disroot.org, nrontsis@gmail.com",
@@ -41,8 +44,8 @@ def main():
                     "src/py_nlp.hpp",
                 ],
                 language="c++",
-                extra_compile_args=["-std=c++17"],
-                **get_compiler_flags(),
+                extra_compile_args=extra_compile_args,
+                **compiler_flags,
             )
         ],
         install_requires=["numpy"],
@@ -59,6 +62,26 @@ def main():
 def get_compiler_flags():
     """Tries to find all needed compiler flags needed to compile the extension"""
     compiler_flags = {"include_dirs": [_numpy_get_include()]}
+
+    # On windows, Python extensions compile with MSVC (where we usually don't use
+    # pkg-config).
+    if sys.platform == "win32":
+        try:
+            return msvc_config(**compiler_flags)
+        except (RuntimeError, FileNotFoundError) as e:
+            warnings.warn(
+                "No compatible MSVC configuration / directory found.\n"
+                f"Message from MSVC configuration:\n{e.args[0]}\n\n"
+                "This extension assumes the official release binaries (dlls) "
+                "in the directory specified by the environment variable "
+                "IPOPT_DIR"
+                "You have to provide setup.py with the include and library "
+                "directories of Ipopt. Example via environment:\n"
+                "IPOPT_DIR='C:/path/to/Ipopt' ./setup.py build"
+            )
+            return compiler_flags
+            
+    # For other platforms, we try pkg_config
     try:
         return pkg_config("ipopt", **compiler_flags)
     except (RuntimeError, FileNotFoundError) as e:
@@ -78,7 +101,7 @@ def get_compiler_flags():
 
 def pkg_config(*packages, **kwargs):
     """Calls pkg-config returning a dict containing all arguments
-    for Extension() needed to compile the extension
+    for Extension() needed to compile the extension.
     """
     flag_map = {
         b"-I": "include_dirs",
@@ -109,5 +132,50 @@ def pkg_config(*packages, **kwargs):
         warnings.warn(f"Ignoring flags {', '.join(undefined_flags)} from pkg-config")
     return kwargs
 
+def msvc_config(**kwargs):
+    """Returns the additional extension arguments for MSVC.
+
+    For windows, we need to compile with MSVC and then usally don't work
+    with pkg_config. We try to read an environment variable containing the
+    directory or assume a subdirectory of the current directory.
+    """
+    ipopt_dir = os.environ.get("IPOPT_DIR", "./Ipopt")
+    if not os.path.exists(ipopt_dir):
+        errmsg = (
+            "IPOPT_DIR environment variable not set to a valid path "
+            "and no local Ipopt directory found."
+        )
+        raise FileNotFoundError(errmsg)
+
+    win_dll_dir = os.path.join(ipopt_dir, "bin")
+
+    win_dll_files = [
+        os.path.join(win_dll_dir, dll)
+        for dll in os.listdir(win_dll_dir)
+        if dll.endswith(".dll")
+    ]
+
+    # Check the corresponding lib files exist
+    win_lib_dir = os.path.join(ipopt_dir, "lib")
+    win_lib_files = [
+        os.path.splitext(lib)[0]
+        for lib in os.listdir(win_lib_dir)
+        if lib.endswith(".lib")
+    ]
+
+    include_dir = os.path.join(ipopt_dir, "include", "coin-or")
+
+    compiler_flags = {
+        "include_dirs": [include_dir],
+        "library_dirs": [win_lib_dir],
+        "libraries": win_lib_files,
+        "data_files": [("", win_dll_files)],
+    }
+
+    for flag, value in kwargs.items():
+        existing_flags = compiler_flags.setdefault(flag, [])
+        existing_flags += value
+
+    return compiler_flags
 
 main()
