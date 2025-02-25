@@ -18,11 +18,12 @@ build-sdist:
   image: python:slim
   stage: build
   needs: []
+  before_script:
+    - pip install build
   script:
     - >
       [ -n "$CI_COMMIT_TAG" ] && sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
-    - pip install numpy # Required in setup.py
-    - python setup.py sdist
+    - python -m build --sdist
   artifacts:
     name: sdist
     paths:
