@@ -6,13 +6,12 @@ import subprocess
 import sys
 import warnings
 from datetime import datetime
-from pathlib import Path
 
 from numpy import get_include as _numpy_get_include
 from setuptools import Extension, setup
 
 # 0.0.0-dev.* version identifiers for development only
-__version__ = "0.0.0.dev" + datetime.now().strftime("%Y%m%d")
+__version__ = "0.0.0dev" + datetime.now().strftime("%Y%m%d")
 
 
 def main():
@@ -21,17 +20,8 @@ def main():
     extra_compile_args = ["/std:c++17" if sys.platform == "win32" else "-std=c++17"]
 
     setup(
-        name="ipyopt",
         version=__version__,
-        description="Python interface to Ipopt",
-        long_description=(Path(__file__).parent / "README.md").read_text(encoding="utf8"),
-        long_description_content_type="text/markdown",
-        author="Gerhard Bräunlich, Nikitas Rontsis",
-        author_email="g.braeunlich@disroot.org, nrontsis@gmail.com",
-        url="https://gitlab.com/ipyopt-devs/ipyopt",
         packages=["ipyopt"],
-        package_data={"ipyopt": ["py.typed"]},
-        zip_safe=False,
         ext_modules=[
             Extension(
                 "ipyopt.ipyopt",
@@ -52,14 +42,6 @@ def main():
                 **compiler_flags,
             )
         ],
-        install_requires=["numpy"],
-        classifiers=[
-            "Programming Language :: Python :: 3",
-        ],
-        project_urls={
-            "Documentation": "https://ipyopt-devs.gitlab.io/ipyopt",
-            "Source": "https://gitlab.com/ipyopt-devs/ipyopt",
-        },
     )
 
 
