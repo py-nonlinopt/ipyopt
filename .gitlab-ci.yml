@@ -7,11 +7,11 @@ build-image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    - >
-      /kaniko/executor \
-        --context=.ci \
-        --destination "$CI_REGISTRY_IMAGE/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG" \
-        --cache=true \
+    - /kaniko/executor
+        --context=.ci
+        --destination
+           "$CI_REGISTRY_IMAGE/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG"
+        --cache=true
         --cache-ttl=720h
 
 build-sdist:
@@ -39,9 +39,8 @@ build-wheel:
         case "$py" in *"cp313"* ) continue ;; esac ; \
         "$py"/bin/pip wheel . -w dist ; \
       done
-    - >
-      for wheel in dist/ipyopt-*.whl ; do \
-        auditwheel repair "$wheel" -w dist ; \
+    - for wheel in dist/ipyopt-*.whl ; do
+        auditwheel repair "$wheel" -w dist ;
       done
   artifacts:
     name: wheel
@@ -134,11 +133,10 @@ create_gitlab_release:
     - apk add git
   script:
     - TAG_MESSAGE="$(git tag --format='%(contents)' -l $CI_COMMIT_TAG)"
-    - >
-      release-cli create \
-        --name "$CI_COMMIT_TAG" \
-        --description "$TAG_MESSAGE" \
-        --tag-name "$CI_COMMIT_TAG" \
+    - release-cli create
+        --name "$CI_COMMIT_TAG"
+        --description "$TAG_MESSAGE"
+        --tag-name "$CI_COMMIT_TAG"
         --ref "$CI_COMMIT_TAG"
 
 pages:
