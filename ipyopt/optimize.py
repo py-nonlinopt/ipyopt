@@ -7,14 +7,9 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
     NamedTuple,
-    Optional,
-    Sequence,
-    Tuple,
     TypeVar,
-    Union,
 )
 
 import numpy as np
@@ -22,11 +17,10 @@ from scipy.optimize import OptimizeResult
 
 from .ipyopt import Problem, get_ipopt_options
 
-if TYPE_CHECKING:
-    # This is only processed by mypy
-    from .ipyopt import NDArrayF64, NDArrayI64
-else:
-    NDArrayI64 = NDArrayF64 = np.ndarray
+if TYPE_CHECKING:  # Only processed by mypy
+    from collections.abc import Callable, Sequence
+
+    from numpy.typing import NDArray
 
 
 class Constraint(NamedTuple):
@@ -40,21 +34,19 @@ class Constraint(NamedTuple):
         lb <= fun(x) <= ub
     """
 
-    fun: Callable[[NDArrayF64, NDArrayF64], Any]
+    fun: "Callable[[NDArray[np.float64], NDArray[np.float64]], Any]"
     """Constraint function.
 
-    Signature is ``fun(x: NDArrayF64, out: NDArrayF64) -> Any``"""
-    jac: Callable[[NDArrayF64, NDArrayF64], Any]
+    Signature is ``fun(x: NDArray[np.float64], out: NDArray[np.float64]) -> Any``"""
+    jac: "Callable[[NDArray[np.float64], NDArray[np.float64]], Any]"
     """Jacobian of ``fun``.
 
-    Signature is ``jac(x: NDArrayF64, out: NDArrayF64) -> Any``"""
-    lb: NDArrayF64
+    Signature is ``jac(x: NDArray[np.float64], out: NDArray[np.float64]) -> Any``"""
+    lb: "NDArray[np.float64]"
     """Lower bounds"""
-    ub: NDArrayF64
+    ub: "NDArray[np.float64]"
     """Upper bounds"""
-    jac_sparsity_indices: Optional[
-        Tuple[Union[Sequence[int], NDArrayI64], Union[Sequence[int], NDArrayI64]]
-    ] = None
+    jac_sparsity_indices: "tuple[Sequence[int] | NDArray[np.int64], Sequence[int] | NDArray[np.int64]] | None" = None
     """Sparsity structure of ``jac``.
 
     Must be given in the form ``((i[0], ..., i[m-1]), (j[0], ..., j[m-1]))``,
@@ -115,28 +107,22 @@ IPOPT_RETURN_CODES = {
 
 
 def ipopt(
-    fun: Callable[[NDArrayF64], float],
-    x0: NDArrayF64,
-    args: Tuple[()],
+    fun: "Callable[[NDArray[np.float64]], float]",
+    x0: "NDArray[np.float64]",
+    args: "tuple[()]",
     *,
-    jac: Union[Callable[[NDArrayF64, NDArrayF64], Any], JacEnvelope[Any]],
-    hess: Optional[Callable[[NDArrayF64, NDArrayF64, float, NDArrayF64], Any]] = None,
-    bounds: Optional[Sequence[Tuple[float, float]]] = None,
+    jac: "Callable[[NDArray[np.float64], NDArray[np.float64]], Any] | JacEnvelope[Any]",
+    hess: "Callable[[NDArray[np.float64], NDArray[np.float64], float, NDArray[np.float64]], Any] | None" = None,
+    bounds: "Sequence[tuple[float, float]] | None" = None,
     constraints: Constraint,
-    tol: Optional[float] = None,
-    callback: Optional[
-        Callable[
-            [int, int, float, float, float, float, float, float, float, float], Any
-        ]
-    ] = None,
-    maxiter: Optional[int] = None,
+    tol: "float | None" = None,
+    callback: "Callable[[int, int, float, float, float, float, float, float, float, float], Any] | None" = None,
+    maxiter: "int | None" = None,
     disp: bool = False,
     obj_scaling: float = 1.0,
-    x_scaling: Optional[NDArrayF64] = None,
-    constraint_scaling: Optional[NDArrayF64] = None,
-    hess_sparsity_indices: Optional[
-        Tuple[Union[Sequence[int], NDArrayI64], Union[Sequence[int], NDArrayI64]]
-    ] = None,
+    x_scaling: "NDArray[np.float64] | None" = None,
+    constraint_scaling: "NDArray[np.float64] | None" = None,
+    hess_sparsity_indices: "tuple[Sequence[int] | NDArray[np.int64], Sequence[int] | NDArray[np.int64]] | None" = None,
     **kwargs: Any,
 ) -> OptimizeResult:
     """Ipopt Method for `scipy.optimize.minimize`_ (to be used as ``method`` argument).

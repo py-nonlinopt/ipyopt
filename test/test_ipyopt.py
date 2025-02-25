@@ -3,7 +3,7 @@
 import gc
 import sys
 import unittest
-from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Callable
 from unittest import mock
 
 import numpy as np
@@ -29,21 +29,18 @@ try:
 except ImportError:
     HAVE_C_CAPSULES = False
 
-if TYPE_CHECKING:
-    # This is only processed by mypy
-    from ipyopt.ipyopt import NDArrayF64, NDArrayI64
-else:
-    NDArrayI64 = NDArrayF64 = np.ndarray
+if TYPE_CHECKING:  # only processed by mypy
+    from numpy.typing import NDArray
 
 
-def e_x(n: int) -> NDArrayF64:
+def e_x(n: int) -> "NDArray[np.float64]":
     """Unit vector in x direction."""
     out = np.zeros(n)
     out[0] = 1.0
     return out
 
 
-def sparsity_g(n: int) -> Tuple[NDArrayI64, NDArrayI64]:
+def sparsity_g(n: int) -> "tuple[NDArray[np.int64], NDArray[np.int64]]":
     """Sparsity indices for the g callback."""
     return (
         np.zeros(n, dtype=np.int64),
@@ -51,17 +48,17 @@ def sparsity_g(n: int) -> Tuple[NDArrayI64, NDArrayI64]:
     )
 
 
-def sparsity_h(n: int) -> Tuple[NDArrayI64, NDArrayI64]:
+def sparsity_h(n: int) -> "tuple[NDArray[np.int64], NDArray[np.int64]]":
     """Sparsity indices for the h callback."""
     return (np.arange(n, dtype=np.int64), np.arange(n, dtype=np.int64))
 
 
-def x_l(n: int) -> NDArrayF64:
+def x_l(n: int) -> "NDArray[np.float64]":
     """Lower domain bound."""
     return np.full((n,), -10.0)
 
 
-def x_u(n: int) -> NDArrayF64:
+def x_u(n: int) -> "NDArray[np.float64]":
     """Upper domain bound."""
     return np.full((n,), 10.0)
 
@@ -76,8 +73,8 @@ def generic_problem(
     if with_hess:
         kwargs["eval_h"] = module.h
 
-    g_l: NDArrayF64 = np.array([0.0])
-    g_u: NDArrayF64 = np.array([4.0])
+    g_l = np.array([0.0])
+    g_u = np.array([4.0])
 
     p = ipyopt.Problem(
         n,
@@ -107,23 +104,29 @@ def py_module(_n: int, wrap_eval_h: Callable[[Any], Any] = lambda f: f) -> Any:
         n = _n
 
         @staticmethod
-        def f(x: NDArrayF64) -> float:
+        def f(x: "NDArray[np.float64]") -> float:
             out: float = np.sum(x**2)
             return out
 
         @staticmethod
-        def grad_f(x: NDArrayF64, out: NDArrayF64) -> NDArrayF64:
+        def grad_f(
+            x: "NDArray[np.float64]", out: "NDArray[np.float64]"
+        ) -> "NDArray[np.float64]":
             out[()] = 2.0 * x
             return out
 
         @staticmethod
-        def g(x: NDArrayF64, out: NDArrayF64) -> NDArrayF64:
+        def g(
+            x: "NDArray[np.float64]", out: "NDArray[np.float64]"
+        ) -> "NDArray[np.float64]":
             """Constraint function: squared distance to (1, 0, ..., 0)."""
             out[0] = (x[0] - 1.0) ** 2 + np.sum(x[1:] ** 2)
             return out
 
         @staticmethod
-        def jac_g(x: NDArrayF64, out: NDArrayF64) -> NDArrayF64:
+        def jac_g(
+            x: "NDArray[np.float64]", out: "NDArray[np.float64]"
+        ) -> "NDArray[np.float64]":
             out[()] = 2.0 * x
             out[0] -= 2.0
             return out
@@ -131,8 +134,11 @@ def py_module(_n: int, wrap_eval_h: Callable[[Any], Any] = lambda f: f) -> Any:
         @staticmethod
         @wrap_eval_h
         def h(
-            _x: NDArrayF64, lagrange: NDArrayF64, obj_factor: float, out: NDArrayF64
-        ) -> NDArrayF64:
+            _x: "NDArray[np.float64]",
+            lagrange: "NDArray[np.float64]",
+            obj_factor: float,
+            out: "NDArray[np.float64]",
+        ) -> "NDArray[np.float64]":
             out[()] = np.full((_n,), 2.0 * (obj_factor + lagrange[0]))
             return out
 
@@ -159,7 +165,7 @@ class Base:
             self.constraint_multipliers = np.zeros(1)
             self.n = n
 
-        def _solve(self, **kwargs: Any) -> NDArrayF64:
+        def _solve(self, **kwargs: Any) -> "NDArray[np.float64]":
             p = generic_problem(self.function_set, **kwargs)
             x, obj, status = p.solve(
                 self.x0.copy(),
@@ -202,10 +208,9 @@ class Base:
         def test_refcount(self) -> None:
             """Check that the refcount of python objects is correctly managed."""
 
-            def f_refcounts(function_set: Any, *, with_hess: bool) -> Dict[str, int]:
-                f_names: Tuple[str, ...] = ("f", "grad_f", "g", "jac_g")
-                if with_hess:
-                    f_names += ("h",)
+            def f_refcounts(function_set: Any, *, with_hess: bool) -> "dict[str, int]":
+                optional_names = ("h",) if with_hess else ()
+                f_names = ("f", "grad_f", "g", "jac_g", *optional_names)
                 return {
                     name: sys.getrefcount(getattr(function_set, name))
                     for name in f_names

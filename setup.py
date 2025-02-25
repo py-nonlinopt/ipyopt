@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
+"""Legacy setup.py to build the C extensions."""
 
-from datetime import datetime
 import os
-import sys
-from pathlib import Path
-import warnings
 import subprocess
+import sys
+import warnings
+from datetime import datetime
+from pathlib import Path
+
 from numpy import get_include as _numpy_get_include
-from setuptools import setup, Extension
+from setuptools import Extension, setup
 
 # 0.0.0-dev.* version identifiers for development only
 __version__ = "0.0.0.dev" + datetime.now().strftime("%Y%m%d")
 
+
 def main():
+    """Entry point."""
     compiler_flags = get_compiler_flags()
     extra_compile_args = ["/std:c++17" if sys.platform == "win32" else "-std=c++17"]
 
@@ -60,7 +64,7 @@ def main():
 
 
 def get_compiler_flags():
-    """Tries to find all needed compiler flags needed to compile the extension"""
+    """Tries to find all needed compiler flags needed to compile the extension."""
     compiler_flags = {"include_dirs": [_numpy_get_include()]}
 
     # On windows, Python extensions compile with MSVC (where we usually don't use
@@ -77,10 +81,11 @@ def get_compiler_flags():
                 "IPOPT_DIR"
                 "You have to provide setup.py with the include and library "
                 "directories of Ipopt. Example via environment:\n"
-                "IPOPT_DIR='C:/path/to/Ipopt' ./setup.py build"
+                "IPOPT_DIR='C:/path/to/Ipopt' ./setup.py build",
+                stacklevel=0,
             )
             return compiler_flags
-            
+
     # For other platforms, we try pkg_config
     try:
         return pkg_config("ipopt", **compiler_flags)
@@ -94,14 +99,16 @@ def get_compiler_flags():
                 "CFLAGS='-I/usr/include/coin/ -l/usr/lib64 "
                 "-lipopt -lmumps_common -ldmumps -lzmumps -lsmumps "
                 "-lcmumps -llapack -lblas -lblas -lblas "
-                "-lm  -ldl' ./setup.py build"
+                "-lm  -ldl' ./setup.py build",
+                stacklevel=0,
             )
         return compiler_flags
 
 
 def pkg_config(*packages, **kwargs):
-    """Calls pkg-config returning a dict containing all arguments
-    for Extension() needed to compile the extension.
+    """Call pkg-config.
+
+    Return all arguments for Extension() needed to compile the extension as a dict
     """
     flag_map = {
         b"-I": "include_dirs",
@@ -110,8 +117,8 @@ def pkg_config(*packages, **kwargs):
         b"-D": "define_macros",
     }
     try:
-        res = subprocess.run(
-            ("pkg-config", "--libs", "--cflags") + packages,
+        res = subprocess.run(  # noqa: S603, UP022
+            ("pkg-config", "--libs", "--cflags", *packages),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,
@@ -119,18 +126,22 @@ def pkg_config(*packages, **kwargs):
     except subprocess.CalledProcessError as e:
         raise RuntimeError(e.stderr.decode()) from e
     for token in res.stdout.split():
-        kwargs.setdefault(flag_map.get(token[:2]), []).append(token[2:].decode())
+        flag = flag_map.get(token[:2])
+        kwargs.setdefault(flag, []).append(token[2:].decode())
     define_macros = kwargs.get("define_macros")
     if define_macros:
         kwargs["define_macros"] = [
             # Set None as the value of the define if no value is passed:
-            tuple((d.split() + [None])[:2])
+            tuple([*d.split(), None][:2])
             for d in define_macros
         ]
     undefined_flags = kwargs.pop(None, None)
     if undefined_flags:
-        warnings.warn(f"Ignoring flags {', '.join(undefined_flags)} from pkg-config")
+        warnings.warn(
+            f"Ignoring flags {', '.join(undefined_flags)} from pkg-config", stacklevel=0
+        )
     return kwargs
+
 
 def msvc_config(**kwargs):
     """Returns the additional extension arguments for MSVC.
@@ -177,5 +188,6 @@ def msvc_config(**kwargs):
         existing_flags += value
 
     return compiler_flags
+
 
 main()

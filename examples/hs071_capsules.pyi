@@ -1,3 +1,3 @@
-from typing import Any, Dict
+from typing import Any
 
-__pyx_capi__: Dict[str, Any]
+__pyx_capi__: dict[str, Any]

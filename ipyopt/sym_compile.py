@@ -3,7 +3,8 @@
 import importlib
 import os
 import sys
-from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from setuptools import Distribution, Extension
 from sympy import Expr, S, Symbol, ccode
@@ -25,9 +26,9 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
     grad_f: Sequence[Expr]
     g: Sequence[Expr]
     jac_g: Sequence[Expr]
-    jac_g_sparsity_indices: Tuple[Sequence[int], Sequence[int]]
+    jac_g_sparsity_indices: "tuple[Sequence[int], Sequence[int]]"
     h: Sequence[Expr]
-    h_sparsity_indices: Tuple[Sequence[int], Sequence[int]]
+    h_sparsity_indices: "tuple[Sequence[int], Sequence[int]]"
 
     def __init__(self, f: Expr, g: Sequence[Expr]):
         self.f = f
@@ -54,7 +55,7 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
         self.h_sparsity_indices = transpose(h_sparsity_indices)
         self.jac_g_sparsity_indices = transpose(jac_g_sparsity_indices)
 
-    def compile(self) -> Dict[str, Any]:
+    def compile(self) -> "dict[str, Any]":
         """Compile all expressions into PyCapsules.
 
         Returns capsules in a dict with keys compatible with :class:`ipyopt.Problem`.
@@ -70,7 +71,7 @@ class SymNlp:  # pylint: disable=too-many-instance-attributes
         return c_api
 
 
-def array_sym(name: str, dim: int) -> List[Symbol]:
+def array_sym(name: str, dim: int) -> list[Symbol]:
     """Creates a list of sympy symbols representing a vector valued symbol."""
     return [Symbol(f"{name}[{i}]") for i in range(dim)]
 
@@ -90,7 +91,7 @@ def c_function_body(expr: Sequence[Expr]) -> CodeBlock:
 
 def sparsify(
     expr: Sequence[Sequence[Expr]],
-) -> Tuple[Sequence[Expr], Sequence[Tuple[int, int]]]:
+) -> "tuple[Sequence[Expr], Sequence[tuple[int, int]]]":
     """Flattens a matrix of sympy expressions, removes zeros.
 
     Returns:
@@ -122,8 +123,8 @@ def ll_triangular(h: Sequence[Sequence[Expr]]) -> Sequence[Sequence[Expr]]:
 
 
 def transpose(
-    index_pairs: Sequence[Tuple[int, int]],
-) -> Tuple[Sequence[int], Sequence[int]]:
+    index_pairs: "Sequence[tuple[int, int]]",
+) -> "tuple[Sequence[int], Sequence[int]]":
     """Turns a sequence of index pairs (i,j) into a pair of sequences (i and j indices).
 
     :meta private:
@@ -143,7 +144,7 @@ def generate_c_code(nlp: SymNlp) -> str:
     h_codeblock = c_function_body(nlp.h)
 
     # Just to give type info to ccode:
-    c_code: Callable[[Union[CodeBlock, Expr]], str] = ccode
+    c_code: Callable[[CodeBlock | Expr], str] = ccode
 
     return f"""
 #include "Python.h"
@@ -153,29 +154,29 @@ def generate_c_code(nlp: SymNlp) -> str:
 #define M {nlp.m}
 
 static bool f(int n, const double *x, double *obj_value, void *userdata) {{
-  *obj_value = { c_code(nlp.f) };
+  *obj_value = {c_code(nlp.f)};
   return true;
 }}
 
 static bool grad_f(int n, const double *x, double *out, void *userdata) {{
-  { c_code(grad_f_codeblock) }
+  {c_code(grad_f_codeblock)}
   return true;
 }}
 
 static bool g(int n, const double *x, int m, double *out, void *userdata) {{
-  { c_code(g_codeblock) }
+  {c_code(g_codeblock)}
   return true;
 }}
 
 static bool jac_g(int n, const double *x, int m, int n_out, double *out,
                   void *userdata) {{
-  { c_code(jac_g_codeblock) }
+  {c_code(jac_g_codeblock)}
   return true;
 }}
 
 static bool h(int n, const double *x, double obj_factor, int m,
               const double *lambda, int n_out, double *out, void *userdata) {{
-  { c_code(h_codeblock) }
+  {c_code(h_codeblock)}
   return true;
 }}
 
@@ -217,7 +218,7 @@ PyMODINIT_FUNC PyInit_c_api(void) {{
 """
 
 
-def compile_c(code: str) -> Dict[str, Any]:
+def compile_c(code: str) -> "dict[str, Any]":
     """Compile/load an extension from C code, return the contained dict of PyCapsules.
 
     This assumes that the code defines a module member
@@ -239,7 +240,8 @@ def compile_c(code: str) -> Dict[str, Any]:
     dist.parse_command_line()
     dist.run_commands()
     sys.path.append(os.getcwd())
-    capi: Dict[str, Any] = importlib.import_module("c_api").__capi__
+    capi: "dict[str, Any]"  # noqa: UP037
+    capi = importlib.import_module("c_api").__capi__
     return capi
 
 

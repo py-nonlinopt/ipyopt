@@ -5,7 +5,7 @@
 Not needed for the actual module, but used in CI.
 """
 
-from setuptools import setup, Extension
+from setuptools import Extension, setup
 
 extensions = [Extension("test.c_capsules", sources=["test/c_capsules/src/module.c"])]
 
