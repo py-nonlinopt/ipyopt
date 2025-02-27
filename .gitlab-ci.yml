@@ -46,6 +46,38 @@ build-wheel:
     paths:
       - dist/ipyopt-*manylinux*.whl
 
+build-wheel:win:
+  tags: ["saas-windows-medium-amd64"]
+  stage: build
+  needs: []
+  variables:
+    VS_VERSION: 2022
+    PYTHON_VERSIONS: "39 310 311 312 313"
+    IPOPT_VERSION: 3.14.17
+    IPOPT_WIN_BINARY_URL: "https://github.com/coin-or/Ipopt/releases/download/releases%2F${IPOPT_VERSION}/Ipopt-${IPOPT_VERSION}-win64-msvs${VS_VERSION}-md.zip"
+  script:
+    - |
+      Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
+      refreshenv
+      choco install "visualstudio${env:VS_VERSION}buildtools" --package-parameters "--includeRecommended --includeOptional --quiet --norestart" -y;
+      choco install "visualstudio${env:VS_VERSION}-workload-vctools" -y;
+      foreach ($version in $env:PYTHON_VERSIONS.Split(" ")) { choco install "python$version" -y }
+      foreach ($version in $env:PYTHON_VERSIONS.Split(" ")) { & "C:\Python$version\python.exe" -m ensurepip; & "C:\Python$version\python.exe" -m pip install --upgrade pip setuptools wheel delvewheel }
+      Invoke-WebRequest ${env:IPOPT_WIN_BINARY_URL} -Out Ipopt-${env:IPOPT_VERSION}.zip
+      Expand-Archive Ipopt-${env:IPOPT_VERSION}.zip -Force; mv .\Ipopt-${env:IPOPT_VERSION}\Ipopt-${env:IPOPT_VERSION}-win64-msvs${env:VS_VERSION}-md .\Ipopt
+      Remove-Item Ipopt-${env:IPOPT_VERSION}.zip -Force; Remove-Item -Recurse -Force Ipopt-${env:IPOPT_VERSION}
+      if ($env:CI_COMMIT_TAG -ne $null) { (Get-Content setup.py) -replace "version=__version__,", "version=`"$env:CI_COMMIT_TAG`"," | Set-Content setup.py }
+      $pythonDirs = Get-ChildItem -Directory -Path "C:\Python*"
+      foreach ($pythonDir in $pythonDirs) {
+        $pythonExe = Join-Path $pythonDir.FullName "python.exe"
+        & $pythonExe -m pip install numpy
+        & $pythonExe -m pip wheel .
+      }
+      & C:\Python312\python.exe -m delvewheel repair --add-path .\Ipopt\bin ipyopt-*.whl
+  artifacts:
+    paths:
+      - ipyopt-*.whl
+
 .install-wheel:
   before_script:
     - mkdir /tmp/ipyopt
@@ -91,6 +123,7 @@ mypy:
 
 test-examples:
   stage: test
+  needs: []
   variables:
     py: /opt/python/cp312-cp312/bin
   before_script:
@@ -103,6 +136,7 @@ test-examples:
 
 test:
   stage: test
+  needs: ["build-wheel"]
   before_script:
     # Install built wheels:
     - >
