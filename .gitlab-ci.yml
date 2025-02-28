@@ -78,7 +78,7 @@ test-examples:
     py: /opt/python/cp312-cp312/bin
   before_script:
     - >
-      "$py"/pip install scipy cython sympy .
+      "$py"/pip install scipy cython sympy setuptools .
     - >
       "$py"/cythonize -i examples/hs071_capsules.pyx
   script:
