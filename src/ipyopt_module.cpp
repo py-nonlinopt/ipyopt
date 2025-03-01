@@ -248,11 +248,9 @@ static bool set_options(NlpBundle &bundle, PyObject *dict) {
 }
 
 static void reformat_error(const char *f_name) {
-  PyObject *ptype, *pvalue, *ptraceback;
-  PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-
-  const char *pStrErrorMessage = PyUnicode_AsUTF8(pvalue);
-  PyErr_Format(ptype, pStrErrorMessage, f_name);
+  PyObject *pytype = nullptr, *pyvalue = nullptr, *pytraceback = nullptr;
+  PyErr_Fetch(&pytype, &pyvalue, &pytraceback);
+  PyErr_Format(pytype, "%s: %S", f_name, pyvalue);
 }
 
 /// Python memory management:
@@ -479,7 +477,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
                              nullptr};
   if (!PyArg_ParseTupleAndKeywords(
           args, keywords,
-          "iO&O&iO&O&OOO&O&O&O&|O&O&dO&O&O:%s", // function name will be substituted later
+          "iO&O&iO&O&OOO&O&O&O&|O&O&dO&O&O;", // function name will be substituted later
           const_cast<char **>(arg_names), &n,
           &parse_vec<arg_x_l, false, double>, &x_l,
           &parse_vec<arg_x_u, false, double>, &x_u, &m,
@@ -510,23 +508,23 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
       !parse_sparsity_indices(py_sparsity_indices_jac_g,
                               sparsity_indices_jac_g) ||
       !check_non_negative(n, "n") || !check_non_negative(m, "m") ||
-      !check_vec_size<double, false>(x_l, n, "%s() argument x_L") ||
-      !check_vec_size<double, false>(x_u, n, "%s() argument x_U") ||
-      !check_vec_size<double, false>(g_l, m, "%s() argument g_L") ||
-      !check_vec_size<double, false>(g_u, m, "%s() argument g_U") ||
+      !check_vec_size<double, false>(x_l, n, "argument x_L") ||
+      !check_vec_size<double, false>(x_u, n, "argument x_U") ||
+      !check_vec_size<double, false>(g_l, m, "argument g_L") ||
+      !check_vec_size<double, false>(g_u, m, "argument g_U") ||
       !(is_null(py_eval_h.callable) ||
         parse_sparsity_indices(py_sparsity_indices_h, sparsity_indices_h)) ||
       !check_optional(py_ipopt_options, _PyDict_Check, "ipopt_options",
                       "Optional[dict]]") ||
-      !check_vec_size<double, true>(x_scaling, n, "%s() argument x_scaling") ||
-      !check_vec_size<double, true>(g_scaling, m, "%s() argument g_scaling") ||
+      !check_vec_size<double, true>(x_scaling, n, "argument x_scaling") ||
+      !check_vec_size<double, true>(g_scaling, m, "argument g_scaling") ||
       !set_options(*self->bundle, py_ipopt_options)) {
     if (self->bundle != nullptr) {
       delete self->bundle;
       self->bundle = nullptr;
     }
     Py_CLEAR(self);
-    reformat_error("ipyopt.Problem");
+    reformat_error("ipyopt.Problem()");
     return nullptr;
   }
 
@@ -631,14 +629,12 @@ static PyObject *py_set_problem_scaling(PyObject *self, PyObject *args,
   const char *arg_names[] = {"obj_scaling", "x_scaling", "g_scaling", nullptr};
   NlpData &nlp = *((PyNlpApp *)self)->nlp;
   if (!PyArg_ParseTupleAndKeywords(
-          args, keywords, "d|O&O&:%s", const_cast<char **>(arg_names),
+          args, keywords, "d|O&O&;", const_cast<char **>(arg_names),
           &obj_scaling, &parse_vec<arg_x_scaling, true, double>, &x_scaling,
           &parse_vec<arg_g_scaling, true, double>, &g_scaling) ||
-      !check_vec_size<double, true>(x_scaling, nlp.n,
-                                    "%s() argument x_scaling") ||
-      !check_vec_size<double, true>(g_scaling, nlp.m,
-                                    "%s() argument g_scaling")) {
-    reformat_error("ipyopt.Problem.set_problem_scaling");
+      !check_vec_size<double, true>(x_scaling, nlp.n, "argument x_scaling") ||
+      !check_vec_size<double, true>(g_scaling, nlp.m, "argument g_scaling")) {
+    reformat_error("ipyopt.Problem.set_problem_scaling()");
     return nullptr;
   }
   nlp._x_scaling = std::move(x_scaling);
