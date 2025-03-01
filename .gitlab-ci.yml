@@ -63,6 +63,23 @@ lint:
     - ruff check .
     - ruff format --check
 
+check-code-format:cpp:
+  stage: test
+  needs: []
+  image: alpine
+  before_script:
+    - apk add clang-extra-tools
+  script:
+    - >
+      find src \
+        -name "*.hpp" -print0 \
+        -or \
+        -name "*.cpp" -print0 \
+      | xargs -0 -I {} \
+        clang-format --dry-run --Werror {} \
+      || (echo -e 'Run the following command to fix format:\nfind src -name "*.hpp" -print0 -or -name "*.cpp" -print0 | xargs -0 -I {} clang-format -i {}' \
+      && exit 1)
+
 mypy:
   stage: test
   image: python:slim
