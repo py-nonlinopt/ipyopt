@@ -248,11 +248,9 @@ static bool set_options(NlpBundle &bundle, PyObject *dict) {
 }
 
 static void reformat_error(const char *f_name) {
-  PyObject *ptype, *pvalue, *ptraceback;
-  PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-
-  const char *pStrErrorMessage = PyUnicode_AsUTF8(pvalue);
-  PyErr_Format(ptype, pStrErrorMessage, f_name);
+  PyObject *pytype = nullptr, *pyvalue = nullptr, *pytraceback = nullptr;
+  PyErr_Fetch(&pytype, &pyvalue, &pytraceback);
+  PyErr_Format(pytype, "%s: %S", f_name, pyvalue);
 }
 
 /// Python memory management:
@@ -479,7 +477,7 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
                              nullptr};
   if (!PyArg_ParseTupleAndKeywords(
           args, keywords,
-          "iO&O&iO&O&OOO&O&O&O&|O&O&dO&O&O:%s", // function name will be substituted later
+          "iO&O&iO&O&OOO&O&O&O&|O&O&dO&O&O;", // function name will be substituted later
           const_cast<char **>(arg_names), &n,
           &parse_vec<arg_x_l, false, double>, &x_l,
           &parse_vec<arg_x_u, false, double>, &x_u, &m,
@@ -510,23 +508,23 @@ static PyObject *py_ipopt_problem_new(PyTypeObject *type, PyObject *args,
       !parse_sparsity_indices(py_sparsity_indices_jac_g,
                               sparsity_indices_jac_g) ||
       !check_non_negative(n, "n") || !check_non_negative(m, "m") ||
-      !check_vec_size<double, false>(x_l, n, "%s() argument x_L") ||
-      !check_vec_size<double, false>(x_u, n, "%s() argument x_U") ||
-      !check_vec_size<double, false>(g_l, m, "%s() argument g_L") ||
-      !check_vec_size<double, false>(g_u, m, "%s() argument g_U") ||
+      !check_vec_size<double, false>(x_l, n, "argument x_L") ||
+      !check_vec_size<double, false>(x_u, n, "argument x_U") ||
+      !check_vec_size<double, false>(g_l, m, "argument g_L") ||
+      !check_vec_size<double, false>(g_u, m, "argument g_U") ||
       !(is_null(py_eval_h.callable) ||
         parse_sparsity_indices(py_sparsity_indices_h, sparsity_indices_h)) ||
       !check_optional(py_ipopt_options, _PyDict_Check, "ipopt_options",
                       "Optional[dict]]") ||
-      !check_vec_size<double, true>(x_scaling, n, "%s() argument x_scaling") ||
-      !check_vec_size<double, true>(g_scaling, m, "%s() argument g_scaling") ||
+      !check_vec_size<double, true>(x_scaling, n, "argument x_scaling") ||
+      !check_vec_size<double, true>(g_scaling, m, "argument g_scaling") ||
       !set_options(*self->bundle, py_ipopt_options)) {
     if (self->bundle != nullptr) {
       delete self->bundle;
       self->bundle = nullptr;
     }
     Py_CLEAR(self);
-    reformat_error("ipyopt.Problem");
+    reformat_error("ipyopt.Problem()");
     return nullptr;
   }
 
@@ -631,14 +629,12 @@ static PyObject *py_set_problem_scaling(PyObject *self, PyObject *args,
   const char *arg_names[] = {"obj_scaling", "x_scaling", "g_scaling", nullptr};
   NlpData &nlp = *((PyNlpApp *)self)->nlp;
   if (!PyArg_ParseTupleAndKeywords(
-          args, keywords, "d|O&O&:%s", const_cast<char **>(arg_names),
+          args, keywords, "d|O&O&;", const_cast<char **>(arg_names),
           &obj_scaling, &parse_vec<arg_x_scaling, true, double>, &x_scaling,
           &parse_vec<arg_g_scaling, true, double>, &g_scaling) ||
-      !check_vec_size<double, true>(x_scaling, nlp.n,
-                                    "%s() argument x_scaling") ||
-      !check_vec_size<double, true>(g_scaling, nlp.m,
-                                    "%s() argument g_scaling")) {
-    reformat_error("ipyopt.Problem.set_problem_scaling");
+      !check_vec_size<double, true>(x_scaling, nlp.n, "argument x_scaling") ||
+      !check_vec_size<double, true>(g_scaling, nlp.m, "argument g_scaling")) {
+    reformat_error("ipyopt.Problem.set_problem_scaling()");
     return nullptr;
   }
   nlp._x_scaling = std::move(x_scaling);
@@ -710,12 +706,18 @@ PyObject *py_get_stats(PyObject *self, void *) {
 
 // Begin Python Module code section
 
+static PyMethodDef module_methods[] = {{"get_ipopt_options",
+                                        py_get_ipopt_options, METH_NOARGS,
+                                        GET_IPOPT_OPTIONS_DOC},
+                                       {nullptr, nullptr, 0, nullptr}};
+
 static struct PyModuleDef moduledef = {
-    PyModuleDef_HEAD_INIT, .m_name = "ipyopt",
-    .m_doc = "Python interface to Ipopt", .m_size = -1,
-    .m_methods = (PyMethodDef[]){{"get_ipopt_options", py_get_ipopt_options,
-                                  METH_NOARGS, GET_IPOPT_OPTIONS_DOC},
-                                 {nullptr, nullptr, 0, nullptr}}};
+    PyModuleDef_HEAD_INIT,
+    "ipyopt",                    // m_name
+    "Python interface to Ipopt", // m_doc
+    -1,                          // m_size
+    module_methods               // m_methods
+};
 
 PyMethodDef problem_methods[] = {
     {"solve", (PyCFunction)py_solve, METH_VARARGS | METH_KEYWORDS,
@@ -727,25 +729,31 @@ PyMethodDef problem_methods[] = {
     {nullptr, nullptr, 0, nullptr},
 };
 
-static PyTypeObject IPyOptProblemType = {
-    PyVarObject_HEAD_INIT(nullptr, 0) // ---
-        .tp_name = "ipyopt.Problem",
-    .tp_basicsize = sizeof(PyNlpApp),
-    .tp_itemsize = 0,
-    .tp_dealloc = (destructor)py_ipopt_problem_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
-    .tp_doc = PyDoc_STR(IPYOPT_PROBLEM_DOC),
-    .tp_traverse = (traverseproc)py_ipopt_problem_traverse,
-    .tp_clear = (inquiry)py_ipopt_problem_clear,
-    .tp_methods = problem_methods,
-    .tp_getset =
-        (PyGetSetDef[]){{"stats", py_get_stats, nullptr,
-                         "dict[str, int]: Stats about an optimization run",
-                         nullptr},
-                        {nullptr, nullptr, nullptr, nullptr, nullptr}},
-    .tp_new = py_ipopt_problem_new};
+static PyGetSetDef object_getset[] = {
+    {"stats", py_get_stats, nullptr,
+     "dict[str, int]: Stats about an optimization run", nullptr},
+    {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+// While this could be done with designated initializers, we use a MSVC
+// compatible way to initialize the type object.
+static PyTypeObject IPyOptProblemType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+void init_IPyOptProblemType() {
+  IPyOptProblemType.tp_name = "ipyopt.Problem";
+  IPyOptProblemType.tp_basicsize = sizeof(PyNlpApp);
+  IPyOptProblemType.tp_dealloc = (destructor)py_ipopt_problem_dealloc;
+  IPyOptProblemType.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC;
+  IPyOptProblemType.tp_doc = IPYOPT_PROBLEM_DOC;
+  IPyOptProblemType.tp_traverse = (traverseproc)py_ipopt_problem_traverse;
+  IPyOptProblemType.tp_clear = (inquiry)py_ipopt_problem_clear;
+  IPyOptProblemType.tp_methods = problem_methods;
+  IPyOptProblemType.tp_getset = object_getset;
+  IPyOptProblemType.tp_new = py_ipopt_problem_new;
+};
 
 PyMODINIT_FUNC PyInit_ipyopt(void) {
+
+  init_IPyOptProblemType();
+
   // Finish initialization of the problem type
   if (PyType_Ready(&IPyOptProblemType) < 0)
     return nullptr;

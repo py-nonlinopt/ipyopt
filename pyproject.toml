@@ -2,9 +2,35 @@
 requires = ["setuptools", "wheel", "numpy"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "ipyopt"
+dynamic = ["version"]
+license = {file = "LICENSE"}
+description = "Python interface to Ipopt"
+readme = "README.md"
+authors = [
+    {name = "Gerhard Bräunlich", email = "g.braeunlich@disroot.org"},
+    {name = "Nikitas Rontsis", email = "nrontsis@gmail.com"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+]
+requires-python = ">= 3.6"
+dependencies = ["numpy"]
+
+[project.urls]
+Homepage = "https://gitlab.com/ipyopt-devs/ipyopt"
+Documentation = "https://ipyopt-devs.gitlab.io/ipyopt"
+Repository = "https://gitlab.com/ipyopt-devs/ipyopt"
+Issues = "https://gitlab.com/ipyopt-devs/ipyopt/-/issues"
+
+[tools.setuptools]
+packages = ["ipyopt"]
+
 [tool.mypy]
 strict = true
-exclude = ["docs/conf.py", "setup.py", "examples/*"]
+exclude = ["docs/conf.py", "setup.py", "examples/*", "build/"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -23,24 +49,28 @@ ignore_missing_imports = true
 select = ["ALL"]
 ignore = [
   "ANN", # flake8-annotations (mypy's job)
+  "B905", # zip-without-explicit-strict
+  "COM812", # missing-trailing-comma (conflicts with formatter)
   "CPY", # flake8-copyright
-  "DTZ", # flake8-datetimez
-  "PTH", # flake8-use-pathlib
-  "FIX", # flake8-fixme (flake8-todos is enough)
   "D105", # undocumented-magic-method
   "D107", # undocumented-public-init
-  "COM812", # missing-trailing-comma (conflicts with formatter)
-  "ISC001", # single-line-implicit-string-concatenation (conflicts with formatter)
   "D401", # non-imperative-mood
-  "B905", # zip-without-explicit-strict
+  "DTZ", # flake8-datetimez
+  "E501", # line-too-long
+  "E741", # Ambiguous name
+  "FA100", # future-rewritable-type-annotation
+  "FIX", # flake8-fixme (flake8-todos is enough)
+  "ISC001", # single-line-implicit-string-concatenation (conflicts with formatter)
+  "PLR0913", # Too many arguments
+  "PT009", # pytest-unittest-assertion
+  "PT027", # pytest-unittest-raises-assertion
+  "PTH", # flake8-use-pathlib
   "UP006", "UP007", # type annotation
   "UP036", # outdated-version-block
-  "PLR0913", # Too many arguments
-  "E741", # Ambiguous name
-  "PT027", # pytest-unittest-raises-assertion
-  "PT009", # pytest-unittest-assertion
-  "FA100", # future-rewritable-type-annotation
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"examples/**.py" = ["T201"] # print

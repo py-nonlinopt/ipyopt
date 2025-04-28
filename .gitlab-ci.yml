@@ -7,22 +7,23 @@ build-image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    - >
-      /kaniko/executor \
-        --context=.ci \
-        --destination "$CI_REGISTRY_IMAGE/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG" \
-        --cache=true \
+    - /kaniko/executor
+        --context=.ci
+        --destination
+           "$CI_REGISTRY_IMAGE/manylinux2014_x86_64-ipopt:$CI_COMMIT_REF_SLUG"
+        --cache=true
         --cache-ttl=720h
 
 build-sdist:
   image: python:slim
   stage: build
   needs: []
+  before_script:
+    - pip install build
   script:
     - >
       [ -n "$CI_COMMIT_TAG" ] && sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
-    - pip install numpy # Required in setup.py
-    - python setup.py sdist
+    - python -m build --sdist
   artifacts:
     name: sdist
     paths:
@@ -33,20 +34,49 @@ build-wheel:
   script:
     - >
       [ -n "$CI_COMMIT_TAG" ] && sed -i -e "s/version=__version__,/version=\"${CI_COMMIT_TAG}\",/" setup.py
-    # Skip python 13 for now
-    - >
-      for py in /opt/python/cp3* ; do \
-        case "$py" in *"cp313"* ) continue ;; esac ; \
-        "$py"/bin/pip wheel . -w dist ; \
+    - python3.12 .ci/backport_pyproject_toml.py > setup.cfg  # for python 3.6
+    - for py in /opt/python/cp3* ; do
+        "$py"/bin/pip wheel . -w dist || exit 1 ;
       done
-    - >
-      for wheel in dist/ipyopt-*.whl ; do \
-        auditwheel repair "$wheel" -w dist ; \
+    - for wheel in dist/ipyopt-*.whl ; do
+        auditwheel repair "$wheel" -w dist || exit 1 ;
       done
   artifacts:
     name: wheel
     paths:
       - dist/ipyopt-*manylinux*.whl
+
+build-wheel:win:
+  tags: ["saas-windows-medium-amd64"]
+  stage: build
+  needs: []
+  variables:
+    VS_VERSION: 2022
+    PYTHON_VERSIONS: "39 310 311 312 313"
+    IPOPT_VERSION: 3.14.17
+    IPOPT_WIN_BINARY_URL: "https://github.com/coin-or/Ipopt/releases/download/releases%2F${IPOPT_VERSION}/Ipopt-${IPOPT_VERSION}-win64-msvs${VS_VERSION}-md.zip"
+  script:
+    - |
+      Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
+      refreshenv
+      choco install "visualstudio${env:VS_VERSION}buildtools" --package-parameters "--includeRecommended --includeOptional --quiet --norestart" -y;
+      choco install "visualstudio${env:VS_VERSION}-workload-vctools" -y;
+      foreach ($version in $env:PYTHON_VERSIONS.Split(" ")) { choco install "python$version" -y }
+      foreach ($version in $env:PYTHON_VERSIONS.Split(" ")) { & "C:\Python$version\python.exe" -m ensurepip; & "C:\Python$version\python.exe" -m pip install --upgrade pip setuptools wheel delvewheel }
+      Invoke-WebRequest ${env:IPOPT_WIN_BINARY_URL} -Out Ipopt-${env:IPOPT_VERSION}.zip
+      Expand-Archive Ipopt-${env:IPOPT_VERSION}.zip -Force; mv .\Ipopt-${env:IPOPT_VERSION}\Ipopt-${env:IPOPT_VERSION}-win64-msvs${env:VS_VERSION}-md .\Ipopt
+      Remove-Item Ipopt-${env:IPOPT_VERSION}.zip -Force; Remove-Item -Recurse -Force Ipopt-${env:IPOPT_VERSION}
+      if ($env:CI_COMMIT_TAG -ne $null) { (Get-Content setup.py) -replace "version=__version__,", "version=`"$env:CI_COMMIT_TAG`"," | Set-Content setup.py }
+      $pythonDirs = Get-ChildItem -Directory -Path "C:\Python*"
+      foreach ($pythonDir in $pythonDirs) {
+        $pythonExe = Join-Path $pythonDir.FullName "python.exe"
+        & $pythonExe -m pip install numpy
+        & $pythonExe -m pip wheel .
+      }
+      & C:\Python312\python.exe -m delvewheel repair --add-path .\Ipopt\bin ipyopt-*.whl
+  artifacts:
+    paths:
+      - ipyopt-*.whl
 
 .install-wheel:
   before_script:
@@ -62,9 +92,25 @@ lint:
   needs: []
   script:
     - pip install ruff
-    - ruff check ipyopt/ test/
-    - ruff check --ignore T201 examples/
+    - ruff check .
     - ruff format --check
+
+check-code-format:cpp:
+  stage: test
+  needs: []
+  image: alpine
+  before_script:
+    - apk add clang-extra-tools
+  script:
+    - >
+      find src \
+        -name "*.hpp" -print0 \
+        -or \
+        -name "*.cpp" -print0 \
+      | xargs -0 -I {} \
+        clang-format --dry-run --Werror {} \
+      || (echo -e 'Run the following command to fix format:\nfind src -name "*.hpp" -print0 -or -name "*.cpp" -print0 | xargs -0 -I {} clang-format -i {}' \
+      && exit 1)
 
 mypy:
   stage: test
@@ -77,11 +123,12 @@ mypy:
 
 test-examples:
   stage: test
+  needs: []
   variables:
     py: /opt/python/cp312-cp312/bin
   before_script:
     - >
-      "$py"/pip install scipy cython sympy .
+      "$py"/pip install scipy cython sympy setuptools .
     - >
       "$py"/cythonize -i examples/hs071_capsules.pyx
   script:
@@ -89,12 +136,12 @@ test-examples:
 
 test:
   stage: test
+  needs: ["build-wheel"]
   before_script:
     # Install built wheels:
     - >
       for py in /opt/python/cp3* ; do \
-        case "$py" in *"cp313"* ) continue ;; esac ; \
-        "$py"/bin/pip install numpy scipy \
+        "$py"/bin/pip install numpy scipy setuptools \
         && "$py"/bin/pip install --only-binary ipyopt --no-index --find-links dist ipyopt ; \
       done
     # Delete ipopt folder to remove it from the PYTHON_PATH:
@@ -102,7 +149,6 @@ test:
   script:
     - >
       for py in /opt/python/cp3* ; do \
-        case "$py" in *"cp313"* ) continue ;; esac ; \
         # Test without capsules:
         "$py"/bin/python -m unittest || exit 1 ; \
         "$py"/bin/python setup_test.py build_ext --inplace ; \
@@ -134,11 +180,10 @@ create_gitlab_release:
     - apk add git
   script:
     - TAG_MESSAGE="$(git tag --format='%(contents)' -l $CI_COMMIT_TAG)"
-    - >
-      release-cli create \
-        --name "$CI_COMMIT_TAG" \
-        --description "$TAG_MESSAGE" \
-        --tag-name "$CI_COMMIT_TAG" \
+    - release-cli create
+        --name "$CI_COMMIT_TAG"
+        --description "$TAG_MESSAGE"
+        --tag-name "$CI_COMMIT_TAG"
         --ref "$CI_COMMIT_TAG"
 
 pages:
