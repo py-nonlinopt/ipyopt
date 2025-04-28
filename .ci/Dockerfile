@@ -1,6 +1,6 @@
 FROM quay.io/pypa/manylinux2014_x86_64
 
-ARG LAPACK_VERSION=3.10.1
+ARG LAPACK_VERSION=3.12.1
 ARG IPOPT_VERSION=3.12.12
 ARG COIN_OR_MUMPS_VERSION=3.0.9
 
@@ -11,8 +11,7 @@ RUN curl -L https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v${LAPA
   && rm -rf build lapack-${LAPACK_VERSION}
 
 # Install mumps:
-RUN yum install -y gcc-gfortran \
-  && curl -L https://github.com/coin-or-tools/ThirdParty-Mumps/archive/refs/tags/releases/${COIN_OR_MUMPS_VERSION}.tar.gz | tar --no-same-owner -xzf - \
+RUN curl -L https://github.com/coin-or-tools/ThirdParty-Mumps/archive/refs/tags/releases/${COIN_OR_MUMPS_VERSION}.tar.gz | tar --no-same-owner -xzf - \
   && cd ThirdParty-Mumps-releases* \
   && ./get.Mumps \
   && ./configure \
