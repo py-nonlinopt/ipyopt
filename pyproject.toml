@@ -74,3 +74,56 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "examples/**.py" = ["T201"] # print
+".github/scripts/*.py" = ["INP001", "T201"] # standalone CI helper scripts (print is fine)
+
+# Wheel building (GitHub Actions, see .github/workflows/wheels.yml):
+
+[tool.cibuildwheel]
+build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
+# musllinux would need its own Ipopt build (apk-based toolchain); enable later
+# if there is demand:
+skip = "*-musllinux*"
+build-verbosity = 1
+# Run the unit tests against every built wheel. `test-sources` copies the
+# listed files into a clean temp dir, so `import ipyopt` resolves to the
+# installed wheel (not the source tree) and the c_capsules tests skip
+# themselves (that helper extension is not built here, cf. setup_test.py).
+# The smoke test runs first: it prints Ipopt's own diagnostics (banner,
+# linear solver, iterations) into the CI log.
+test-sources = ["test", ".github/scripts/ipopt_smoke_test.py"]
+test-requires = ["scipy"]
+test-command = "python .github/scripts/ipopt_smoke_test.py && python -m unittest"
+
+[tool.cibuildwheel.linux]
+before-all = "bash {project}/.github/scripts/build_ipopt.sh"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+# setup.py locates Ipopt via pkg-config; auditwheel resolves the shared libs
+# through LD_LIBRARY_PATH when vendoring them into the wheel:
+environment = { PKG_CONFIG_PATH = "/usr/local/lib/pkgconfig", LD_LIBRARY_PATH = "/usr/local/lib:$LD_LIBRARY_PATH" }
+
+[tool.cibuildwheel.macos]
+before-all = "bash {project}/.github/scripts/build_ipopt.sh"
+environment = { PKG_CONFIG_PATH = "$HOME/ipopt/lib/pkgconfig" }
+
+[tool.cibuildwheel.windows]
+# MinGW (MSYS2/UCRT64) build: Ipopt & Co are compiled from source into
+# C:/ipopt by .github/scripts/build_ipopt.sh (the official coin-or binaries
+# would pull in Intel's OpenMP runtime libiomp5md.dll, which is not safe to
+# vendor into a wheel). The extension is compiled with mingw g++ as well
+# (the workflow writes a setup.cfg selecting `compiler = mingw32`; Ipopt's
+# C++ interface requires one common C++ toolchain). MINGW_BIN is exported by
+# the workflow; IPYOPT_USE_PKG_CONFIG makes setup.py use pkg-config instead
+# of the MSVC/IPOPT_DIR discovery:
+environment = { PATH = "$MINGW_BIN;$PATH", PKG_CONFIG_PATH = "C:/ipopt/lib/pkgconfig", IPYOPT_USE_PKG_CONFIG = "1" }
+before-build = [
+  "pip install delvewheel",
+  # python.org CPython ships only an MSVC-style import library
+  # (libs/python3XY.lib); expose it under a name MinGW's linker finds
+  # via -lpython3XY:
+  "python {project}/.github/scripts/mingw_libpython.py",
+]
+# --strip: MinGW-built DLLs may contain an overlay which delvewheel cannot
+# name-mangle otherwise (strip.exe comes from $MINGW_BIN on PATH).
+# %MINGW_BIN% is expanded by cmd:
+repair-wheel-command = 'delvewheel repair --strip --add-path "C:/ipopt/bin;%MINGW_BIN%" -w {dest_dir} {wheel}'

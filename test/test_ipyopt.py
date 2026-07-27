@@ -3,7 +3,8 @@
 import gc
 import sys
 import unittest
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 from unittest import mock
 
 import numpy as np
@@ -248,8 +249,13 @@ class Base:
                         "mult_x_U": sys.getrefcount(self.zu),
                     }
                     self.assertEqual(refcounts_before, refcounts_after)
-                    expected_refcount = 2
-                    self.assertEqual(sys.getrefcount(obj), expected_refcount)
+                    # obj must be a fresh float only referenced by the local
+                    # variable. The absolute refcount for that situation is
+                    # interpreter dependent (CPython >= 3.14 no longer counts
+                    # call arguments), so compare against a witness object in
+                    # the same situation instead of a hardcoded value:
+                    witness = float("0.0")
+                    self.assertEqual(sys.getrefcount(obj), sys.getrefcount(witness))
 
 
 @unittest.skipIf(not HAVE_C_CAPSULES, "c_capsules not built")

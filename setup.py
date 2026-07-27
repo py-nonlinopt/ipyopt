@@ -16,9 +16,6 @@ __version__ = "0.0.0dev" + datetime.now().strftime("%Y%m%d")
 
 def main():
     """Entry point."""
-    compiler_flags = get_compiler_flags()
-    extra_compile_args = ["/std:c++17" if sys.platform == "win32" else "-std=c++17"]
-
     setup(
         version=__version__,
         packages=["ipyopt"],
@@ -38,8 +35,7 @@ def main():
                     "src/py_nlp.hpp",
                 ],
                 language="c++",
-                extra_compile_args=extra_compile_args,
-                **compiler_flags,
+                **get_compiler_flags(),
             )
         ],
     )
@@ -49,9 +45,18 @@ def get_compiler_flags():
     """Tries to find all needed compiler flags needed to compile the extension."""
     compiler_flags = {"include_dirs": [_numpy_get_include()]}
 
-    # On windows, Python extensions compile with MSVC (where we usually don't use
-    # pkg-config).
-    if sys.platform == "win32":
+    # On windows, Python extensions usually compile with MSVC (where we
+    # usually don't use pkg-config). Builds against a MinGW compiled Ipopt
+    # (e.g. the wheel builds, see .github/workflows/wheels.yml) opt in to
+    # pkg-config by setting IPYOPT_USE_PKG_CONFIG=1; the extension must then
+    # also be compiled with MinGW (`[build_ext] compiler = mingw32`), since
+    # Ipopt's C++ interface requires a single common C++ toolchain.
+    use_pkg_config = sys.platform != "win32" or os.environ.get(
+        "IPYOPT_USE_PKG_CONFIG", ""
+    ).lower() in {"1", "true", "yes", "on"}
+
+    if not use_pkg_config:
+        compiler_flags["extra_compile_args"] = ["/std:c++17"]
         try:
             return msvc_config(**compiler_flags)
         except (RuntimeError, FileNotFoundError) as e:
@@ -68,7 +73,8 @@ def get_compiler_flags():
             )
             return compiler_flags
 
-    # For other platforms, we try pkg_config
+    # For all other cases, we try pkg_config
+    compiler_flags["extra_compile_args"] = ["-std=c++17", "-O2"]
     try:
         return pkg_config("ipopt", **compiler_flags)
     except (RuntimeError, FileNotFoundError) as e:
@@ -100,7 +106,7 @@ def pkg_config(*packages, **kwargs):
     }
     try:
         res = subprocess.run(  # noqa: S603, UP022
-            ("pkg-config", "--libs", "--cflags", *packages),
+            ("pkg-config", "--libs", "--cflags", *packages),  # noqa: S607
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,

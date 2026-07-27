@@ -1,0 +1,203 @@
+---
+# Build (and on tags: publish) sdist + binary wheels.
+#
+# GitHub Actions port of the wheel-related parts of .gitlab-ci.yml:
+#   - Linux wheels: Ipopt + reference LAPACK + MUMPS built from source inside
+#     the manylinux container (see .github/scripts/build_ipopt.sh), repaired
+#     with auditwheel. Same recipe as .ci/Dockerfile, but per-job instead of
+#     a prebuilt registry image.
+#   - macOS wheels (new): same source build, BLAS/LAPACK from the Accelerate
+#     framework, repaired with delocate. Runs natively on Intel and Apple
+#     Silicon runners.
+#   - Windows wheels: full MinGW (MSYS2/UCRT64) build. The official coin-or
+#     binary releases are built with Intel compilers + MKL and ship
+#     libiomp5md.dll; vendoring a second OpenMP runtime into a process
+#     (numpy/MKL, torch, ...) causes the well-known "OMP Error #15" crashes,
+#     so instead Ipopt + MUMPS + reference LAPACK are compiled with MinGW
+#     gcc/gfortran (no OpenMP at all). The extension itself is compiled with
+#     MinGW as well (ipyopt uses Ipopt's C++ interface, so the extension and
+#     libipopt must share one C++ toolchain); wheels are repaired with
+#     delvewheel.
+#
+# All of the cibuildwheel configuration that is not job-specific lives in
+# pyproject.toml under [tool.cibuildwheel].
+#
+# Publishing uses PyPI "trusted publishing" (OIDC, no token secret):
+# on PyPI, add this repository + workflow as a trusted publisher for the
+# project and create a "pypi" environment in the repository settings.
+
+name: wheels
+
+on:
+  push:
+    branches: [main, github-build]
+    tags: ["*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Dependency versions for the from-source builds (all platforms):
+  IPOPT_VERSION: "3.14.17"
+  LAPACK_VERSION: "3.12.1"
+  COIN_MUMPS_VERSION: "3.0.9"
+
+jobs:
+  sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version from the git tag
+        if: github.ref_type == 'tag'
+        shell: python
+        run: |
+          # Same purpose as the sed call in .gitlab-ci.yml:
+          # bake the tag name into setup.py as the package version.
+          import os
+          import pathlib
+
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          path = pathlib.Path("setup.py")
+          source = path.read_text()
+          needle = "version=__version__,"
+          assert needle in source, "version placeholder not found in setup.py"
+          path.write_text(source.replace(needle, f'version="{tag}",'))
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  wheels:
+    name: Wheels ${{ matrix.id }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x86_64
+            runner: ubuntu-latest
+            cibw-archs: x86_64
+          - id: linux-aarch64
+            # Free arm64 runners are available for public repositories:
+            runner: ubuntu-24.04-arm
+            cibw-archs: aarch64
+          - id: macos-x86_64
+            # Intel runner (macos-13 is retired; macos-15-intel is supported
+            # until ~2027).
+            runner: macos-15-intel
+            cibw-archs: x86_64
+            # Oldest macOS the wheel claims to support. Only works below the
+            # runner's OS version as long as the static-Fortran-runtime trick
+            # in build_ipopt.sh holds -- if delocate errors on a Homebrew
+            # dylib, raise this to the runner's OS version.
+            macos-deployment-target: "13.0"
+          - id: macos-arm64
+            runner: macos-15
+            cibw-archs: arm64
+            macos-deployment-target: "13.0"
+          - id: windows-amd64
+            runner: windows-latest
+            cibw-archs: AMD64
+    env:
+      CIBW_ARCHS: ${{ matrix.cibw-archs }}
+      # Forward the dependency versions into the manylinux container:
+      CIBW_ENVIRONMENT_PASS_LINUX: IPOPT_VERSION LAPACK_VERSION COIN_MUMPS_VERSION
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos-deployment-target }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set version from the git tag
+        if: github.ref_type == 'tag'
+        shell: python
+        run: |
+          import os
+          import pathlib
+
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          path = pathlib.Path("setup.py")
+          source = path.read_text()
+          needle = "version=__version__,"
+          assert needle in source, "version placeholder not found in setup.py"
+          path.write_text(source.replace(needle, f'version="{tag}",'))
+
+      - name: Set up MSYS2 (MinGW-w64 UCRT64 toolchain)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          # UCRT64: links against the same C runtime (ucrt) as CPython >= 3.5.
+          msystem: UCRT64
+          install: >-
+            make
+            patch
+            curl
+            wget
+            tar
+            gzip
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-gcc-fortran
+            mingw-w64-ucrt-x86_64-lapack
+            mingw-w64-ucrt-x86_64-pkgconf
+
+      - name: Build Ipopt and dependencies (MinGW)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          .github/scripts/build_ipopt.sh
+          # Used by cibuildwheel (PATH, so gcc/pkg-config are found) and by
+          # the delvewheel repair command (--add-path), see pyproject.toml:
+          echo "MINGW_BIN=$(cygpath -m "$MSYSTEM_PREFIX/bin")" >> "$GITHUB_ENV"
+
+      - name: Configure setuptools for MinGW
+        if: runner.os == 'Windows'
+        shell: bash
+        run: printf '[build_ext]\ncompiler = mingw32\n' > setup.cfg
+
+      - name: Build and test wheels
+        run: |
+          python -m pip install "cibuildwheel>=3.1,<4"
+          python -m cibuildwheel --output-dir wheelhouse
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.id }}
+          path: wheelhouse/*.whl
+
+  # publish:
+  #   name: Publish to PyPI
+  #   if: github.ref_type == 'tag'
+  #   needs: [sdist, wheels]
+  #   runs-on: ubuntu-latest
+  #   # Create this environment in the repo settings and reference it in the
+  #   # PyPI trusted-publisher configuration:
+  #   environment:
+  #     name: pypi
+  #     url: https://pypi.org/project/ipyopt/
+  #   permissions:
+  #     id-token: write  # for PyPI trusted publishing (OIDC)
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         path: dist
+  #         merge-multiple: true
+
+  #     - uses: pypa/gh-action-pypi-publish@release/v1
+  #       # To dry-run against TestPyPI instead, configure the trusted
+  #       # publisher there and set:
+  #       # with:
+  #       #   repository-url: https://test.pypi.org/legacy/
