@@ -53,7 +53,7 @@ jobs:
     name: Build sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set version from the git tag
         if: github.ref_type == 'tag'
@@ -74,7 +74,7 @@ jobs:
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -116,9 +116,9 @@ jobs:
       CIBW_ENVIRONMENT_PASS_LINUX: IPOPT_VERSION LAPACK_VERSION COIN_MUMPS_VERSION
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos-deployment-target }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -173,7 +173,7 @@ jobs:
           python -m pip install "cibuildwheel>=3.1,<4"
           python -m cibuildwheel --output-dir wheelhouse
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.id }}
           path: wheelhouse/*.whl
@@ -191,7 +191,7 @@ jobs:
   #   permissions:
   #     id-token: write  # for PyPI trusted publishing (OIDC)
   #   steps:
-  #     - uses: actions/download-artifact@v4
+  #     - uses: actions/download-artifact@v8
   #       with:
   #         path: dist
   #         merge-multiple: true
