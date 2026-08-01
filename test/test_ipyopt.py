@@ -3,7 +3,8 @@
 import gc
 import sys
 import unittest
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 from unittest import mock
 
 import numpy as np
