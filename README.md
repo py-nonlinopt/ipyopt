@@ -75,6 +75,7 @@ You can use `ipyopt` like this:
 
 ```python
 import ipyopt
+
 # define your call back functions
 nlp = ipyopt.Problem(...)
 nlp.solve(...)
