@@ -100,7 +100,7 @@ def pkg_config(*packages, **kwargs):
     }
     try:
         res = subprocess.run(  # noqa: S603, UP022
-            ("pkg-config", "--libs", "--cflags", *packages),
+            ("pkg-config", "--libs", "--cflags", *packages),  # noqa: S607
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,
